@@ -2,19 +2,20 @@ import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
-import { useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import EventMarkers from './EventMarkers'
 import SubscriptionPanel from './SubscriptionPanel'
-import { MarkerData } from './types'
+import {
+    initializeEvents,
+    saveEvents,
+    initializeUsers,
+    saveUsers,
+    loadCurrentUserId,
+    saveCurrentUserId,
+} from './eventDatabase'
+import { MarkerData, User, NewMarkerData } from './types'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
-const busRoute: [number, number][] = [
-    [41.381, 2.168],
-    [41.383, 2.170],
-    [41.386, 2.173],
-    [41.389, 2.175],
-    [41.391, 2.178],
-]
 
 const parseHour = (hour: string) => {
     const [h, m] = hour.split(':').map(Number)
@@ -33,56 +34,133 @@ const getBearing = (start: [number, number], end: [number, number]) => {
 const createArrowIcon = (rotation: number) =>
     new L.DivIcon({
         className: 'subscription-arrow-icon',
-        html: `<div style="transform: rotate(${rotation}deg);">➤</div>`,
+        html: `<div style="transform: rotate(${rotation - 90}deg); transform-origin: center center; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;">➤</div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
     })
 
 function App() {
-    const [markers, setMarkers] = useState<MarkerData[]>(() => {
-        if (typeof window === 'undefined') return []
-        const stored = localStorage.getItem('savedMarkers')
-        return stored ? JSON.parse(stored) : []
-    })
-    const [subscriptions, setSubscriptions] = useState<string[]>(() => {
-        if (typeof window === 'undefined') return []
-        const stored = localStorage.getItem('subscriptions')
-        return stored ? JSON.parse(stored) : []
-    })
+    const [markers, setMarkers] = useState<MarkerData[]>(() => initializeEvents())
+    const [users, setUsers] = useState<User[]>(() => initializeUsers())
+    const [currentUserId, setCurrentUserId] = useState<string | null>(() => loadCurrentUserId())
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
     const [editing, setEditing] = useState(false)
     const [formData, setFormData] = useState({ name: '', hour: '', description: '' })
+    const [showLoginForm, setShowLoginForm] = useState(false)
+    const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+    const [loginError, setLoginError] = useState('')
 
     useEffect(() => {
-        localStorage.setItem('savedMarkers', JSON.stringify(markers))
+        saveEvents(markers)
     }, [markers])
 
     useEffect(() => {
-        localStorage.setItem('subscriptions', JSON.stringify(subscriptions))
-    }, [subscriptions])
+        saveUsers(users)
+    }, [users])
 
-    const handleSaveMarker = (marker: MarkerData) => {
-        setMarkers((current) => [...current, marker])
+    useEffect(() => {
+        saveCurrentUserId(currentUserId)
+    }, [currentUserId])
+
+    const handleSaveMarker = (marker: NewMarkerData) => {
+        if (!currentUserId) return
+        setMarkers((current) => [...current, { ...marker, creatorId: currentUserId }])
         setClickPosition(null)
         setEditing(false)
         setFormData({ name: '', hour: '', description: '' })
     }
 
+    const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+
+        const user = users.find((candidate) => candidate.username === loginForm.username.trim())
+        if (!user || user.password !== loginForm.password) {
+            setLoginError('Invalid username or password.')
+            return
+        }
+
+        setCurrentUserId(user.id)
+        setShowLoginForm(false)
+        setLoginError('')
+        setLoginForm({ username: '', password: '' })
+    }
+
+    const handleLogout = () => {
+        setCurrentUserId(null)
+        setShowLoginForm(false)
+        setLoginError('')
+    }
+
+    const handleToggleLogin = () => {
+        if (currentUserId) {
+            handleLogout()
+            return
+        }
+        setShowLoginForm((visible) => !visible)
+        setLoginError('')
+    }
+
     const handleSubscribe = (markerId: string) => {
-        setSubscriptions((current) =>
-            current.includes(markerId) ? current : [...current, markerId],
+        if (!currentUserId) return
+
+        setUsers((current) =>
+            current.map((user) =>
+                user.id === currentUserId && !user.subscriptions.includes(markerId)
+                    ? { ...user, subscriptions: [...user.subscriptions, markerId] }
+                    : user,
+            ),
+        )
+    }
+
+    const handleDeleteMarker = (markerId: string) => {
+        if (!currentUserId) return
+        const marker = markers.find(m => m.id === markerId)
+        if (!marker || marker.creatorId !== currentUserId) return
+
+        // Remove the marker
+        setMarkers((current) => current.filter(m => m.id !== markerId))
+
+        // Remove subscriptions to this marker from all users
+        setUsers((current) =>
+            current.map((user) => ({
+                ...user,
+                subscriptions: user.subscriptions.filter((id) => id !== markerId),
+            }))
         )
     }
 
     const handleUnsubscribe = (markerId: string) => {
-        setSubscriptions((current) => current.filter((id) => id !== markerId))
-    }
+        if (!currentUserId) return
 
-    const subscribedMarkers = markers.filter((marker) => subscriptions.includes(marker.id))
+        setUsers((current) =>
+            current.map((user) =>
+                user.id === currentUserId
+                    ? { ...user, subscriptions: user.subscriptions.filter((id) => id !== markerId) }
+                    : user,
+            ),
+        )
+    }
+    const currentUser = users.find((user) => user.id === currentUserId) ?? null
+    const subscribedMarkers = markers.filter((marker) => currentUser?.subscriptions.includes(marker.id))
     const orderedSubscribedMarkers = [...subscribedMarkers].sort(
         (a, b) => parseHour(a.hour) - parseHour(b.hour),
     )
     const subscriptionPath = orderedSubscribedMarkers.map((marker) => marker.position)
+    const subscribersByEvent = markers.reduce<Record<string, string[]>>((map, marker) => {
+        map[marker.id] = []
+        return map
+    }, {})
+
+    users.forEach((user) => {
+        user.subscriptions.forEach((markerId) => {
+            if (!subscribersByEvent[markerId]) {
+                subscribersByEvent[markerId] = []
+            }
+            if (!subscribersByEvent[markerId].includes(user.username)) {
+                subscribersByEvent[markerId].push(user.username)
+            }
+        })
+    })
 
     return (
         <div className="map-shell">
@@ -98,19 +176,14 @@ function App() {
                     </Popup>
                 </Marker>
 
-                <Polyline positions={busRoute} pathOptions={{ color: 'red', weight: 6, opacity: 0.75 }} />
-
-                <Marker position={busRoute[0]}>
-                    <Popup>Bus route start</Popup>
-                </Marker>
-                <Marker position={busRoute[busRoute.length - 1]}>
-                    <Popup>Bus route end</Popup>
-                </Marker>
-
                 <EventMarkers
                     markers={markers}
-                    subscribedIds={subscriptions}
+                    subscribedIds={currentUser?.subscriptions ?? []}
+                    subscribersByEvent={subscribersByEvent}
+                    canSubscribe={!!currentUser}
+                    currentUserId={currentUserId}
                     onSubscribe={handleSubscribe}
+                    onDeleteMarker={handleDeleteMarker}
                     clickPosition={clickPosition}
                     editing={editing}
                     setEditing={setEditing}
@@ -146,7 +219,45 @@ function App() {
             </MapContainer>
 
             <div className="sidebar-overlay">
-                <SubscriptionPanel subscribedMarkers={orderedSubscribedMarkers} onRemoveSubscription={handleUnsubscribe} />
+                <div className="login-panel">
+                    <button type="button" className="login-button" onClick={handleToggleLogin}>
+                        {currentUser ? 'Logout' : 'Login'}
+                    </button>
+                    {currentUser ? (
+                        <div className="login-info">Logged in as <strong>{currentUser.username}</strong></div>
+                    ) : null}
+                    {!currentUser && showLoginForm ? (
+                        <form className="login-form" onSubmit={handleLogin}>
+                            <div className="login-field">
+                                <label htmlFor="login-username">Username</label>
+                                <input
+                                    id="login-username"
+                                    className="popup-input"
+                                    value={loginForm.username}
+                                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                                />
+                            </div>
+                            <div className="login-field">
+                                <label htmlFor="login-password">Password</label>
+                                <input
+                                    id="login-password"
+                                    className="popup-input"
+                                    type="password"
+                                    value={loginForm.password}
+                                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                                />
+                            </div>
+                            <button type="submit" className="popup-submit">Sign in</button>
+                        </form>
+                    ) : null}
+                    {loginError ? <div className="login-error">{loginError}</div> : null}
+                </div>
+
+                <SubscriptionPanel
+                    subscribedMarkers={orderedSubscribedMarkers}
+                    onRemoveSubscription={handleUnsubscribe}
+                    currentUser={currentUser}
+                />
             </div>
         </div>
     )

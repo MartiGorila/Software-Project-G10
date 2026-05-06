@@ -152,6 +152,14 @@
     cursor: not-allowed;
 }
 
+.popup-delete {
+    background: #dc2626 !important;
+}
+
+.popup-delete:hover {
+    background: #b91c1c !important;
+}
+
 .popup-form {
     display: flex;
     flex-direction: column;
@@ -193,4 +201,86 @@
 
 .read-the-docs {
     color: #888;
+}
+
+.login-panel {
+    margin-bottom: 1rem;
+    padding: 1rem 1rem 0.75rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.login-button {
+    width: 100%;
+    border: none;
+    border-radius: 0.75rem;
+    background: #2563eb;
+    color: white;
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+}
+
+.login-info {
+    font-size: 0.95rem;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.login-error {
+    color: #b91c1c;
+    background: #fee2e2;
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.event-subscribers {
+    display: block;
+    margin-top: 0.5rem;
+    color: #475569;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.subscription-arrow-icon {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 24px !important;
+    height: 24px !important;
+    background: #1d4ed8;
+    border-radius: 50%;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    transform-origin: center center !important;
+}
+
+.subscription-arrow-icon div {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transform-origin: center center;
+    line-height: 1;
 }

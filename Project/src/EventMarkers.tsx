@@ -1,18 +1,22 @@
 import { Marker, Popup, useMapEvents } from 'react-leaflet'
 import { Dispatch, FormEvent, SetStateAction } from 'react'
-import { MarkerData } from './types'
+import { MarkerData, NewMarkerData } from './types'
 
 type EventMarkersProps = {
     markers: MarkerData[]
     subscribedIds: string[]
+    subscribersByEvent: Record<string, string[]>
+    canSubscribe: boolean
+    currentUserId: string | null
     onSubscribe: (markerId: string) => void
+    onDeleteMarker: (markerId: string) => void
     clickPosition: [number, number] | null
     editing: boolean
     setEditing: Dispatch<SetStateAction<boolean>>
     formData: { name: string; hour: string; description: string }
     setFormData: Dispatch<SetStateAction<{ name: string; hour: string; description: string }>>
     onClickLocation: (position: [number, number]) => void
-    onSaveMarker: (marker: MarkerData) => void
+    onSaveMarker: (marker: NewMarkerData) => void
 }
 
 function ClickMenu({ onClickLocation }: { onClickLocation: (position: [number, number]) => void }) {
@@ -28,7 +32,11 @@ function ClickMenu({ onClickLocation }: { onClickLocation: (position: [number, n
 export default function EventMarkers({
     markers,
     subscribedIds,
+    subscribersByEvent,
+    canSubscribe,
+    currentUserId,
     onSubscribe,
+    onDeleteMarker,
     clickPosition,
     editing,
     setEditing,
@@ -41,6 +49,8 @@ export default function EventMarkers({
         <>
             {markers.map((marker) => {
                 const subscribed = subscribedIds.includes(marker.id)
+                const subscriberNames = subscribersByEvent[marker.id] ?? []
+                const isCreator = marker.creatorId === currentUserId
                 return (
                     <Marker key={marker.id} position={marker.position}>
                         <Popup>
@@ -49,14 +59,37 @@ export default function EventMarkers({
                             Hour: {marker.hour}
                             <br />
                             {marker.description}
-                            <button
-                                type="button"
-                                className="popup-button popup-subscribe"
-                                onClick={() => onSubscribe(marker.id)}
-                                disabled={subscribed}
-                            >
-                                {subscribed ? 'Subscribed' : 'Subscribe'}
-                            </button>
+                            <br />
+                            <small className="event-subscribers">
+                                {subscriberNames.length > 0
+                                    ? `Subscribed users: ${subscriberNames.join(', ')}`
+                                    : 'No users subscribed yet.'}
+                            </small>
+                            <div style={{ marginTop: '8px', display: 'flex', gap: '4px' }}>
+                                <button
+                                    type="button"
+                                    className="popup-button popup-subscribe"
+                                    onClick={() => onSubscribe(marker.id)}
+                                    disabled={subscribed || !canSubscribe}
+                                    style={{ flex: 1 }}
+                                >
+                                    {subscribed
+                                        ? 'Subscribed'
+                                        : canSubscribe
+                                        ? 'Subscribe'
+                                        : 'Login to subscribe'}
+                                </button>
+                                {isCreator && (
+                                    <button
+                                        type="button"
+                                        className="popup-button popup-delete"
+                                        onClick={() => onDeleteMarker(marker.id)}
+                                        style={{ background: '#dc2626' }}
+                                    >
+                                        Delete
+                                    </button>
+                                )}
+                            </div>
                         </Popup>
                     </Marker>
                 )
@@ -69,9 +102,15 @@ export default function EventMarkers({
                         {!editing ? (
                             <div className="popup-menu">
                                 <div className="popup-title">Click menu</div>
-                                <button type="button" className="popup-button" onClick={() => setEditing(true)}>
-                                    + Add permanent marker
-                                </button>
+                                {canSubscribe ? (
+                                    <button type="button" className="popup-button" onClick={() => setEditing(true)}>
+                                        + Add permanent marker
+                                    </button>
+                                ) : (
+                                    <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                                        Login to create events
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <form className="popup-form" onSubmit={(event: FormEvent<HTMLFormElement>) => {
