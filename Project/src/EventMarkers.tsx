@@ -76,8 +76,8 @@ export default function EventMarkers({
                                     {subscribed
                                         ? 'Subscribed'
                                         : canSubscribe
-                                        ? 'Subscribe'
-                                        : 'Login to subscribe'}
+                                            ? 'Subscribe'
+                                            : 'Login to subscribe'}
                                 </button>
                                 {isCreator && (
                                     <button

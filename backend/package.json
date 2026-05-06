@@ -1,0 +1,20 @@
+{
+  "name": "event-app-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend API for event subscription app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  },
+  "devDependencies": {
+    "node": "^18.0.0"
+  }
+}

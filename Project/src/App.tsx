@@ -5,14 +5,7 @@ import './App.css'
 import { FormEvent, useEffect, useState } from 'react'
 import EventMarkers from './EventMarkers'
 import SubscriptionPanel from './SubscriptionPanel'
-import {
-    initializeEvents,
-    saveEvents,
-    initializeUsers,
-    saveUsers,
-    loadCurrentUserId,
-    saveCurrentUserId,
-} from './eventDatabase'
+import { fetchUsers, fetchEvents, createEvent, deleteEventAPI, subscribeToEvent, unsubscribeFromEvent } from './api'
 import { MarkerData, User, NewMarkerData } from './types'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
@@ -40,9 +33,9 @@ const createArrowIcon = (rotation: number) =>
     })
 
 function App() {
-    const [markers, setMarkers] = useState<MarkerData[]>(() => initializeEvents())
-    const [users, setUsers] = useState<User[]>(() => initializeUsers())
-    const [currentUserId, setCurrentUserId] = useState<string | null>(() => loadCurrentUserId())
+    const [markers, setMarkers] = useState<MarkerData[]>([])
+    const [users, setUsers] = useState<User[]>([])
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
     const [editing, setEditing] = useState(false)
     const [formData, setFormData] = useState({ name: '', hour: '', description: '' })
@@ -50,24 +43,30 @@ function App() {
     const [loginForm, setLoginForm] = useState({ username: '', password: '' })
     const [loginError, setLoginError] = useState('')
 
+    // Cargar datos desde la API
     useEffect(() => {
-        saveEvents(markers)
-    }, [markers])
+        const loadData = async () => {
+            const [fetchedUsers, fetchedEvents] = await Promise.all([fetchUsers(), fetchEvents()])
+            setUsers(fetchedUsers)
+            setMarkers(fetchedEvents)
+        }
+        loadData()
+    }, [])
 
-    useEffect(() => {
-        saveUsers(users)
-    }, [users])
-
-    useEffect(() => {
-        saveCurrentUserId(currentUserId)
-    }, [currentUserId])
-
-    const handleSaveMarker = (marker: NewMarkerData) => {
+    const handleSaveMarker = async (marker: NewMarkerData) => {
         if (!currentUserId) return
-        setMarkers((current) => [...current, { ...marker, creatorId: currentUserId }])
-        setClickPosition(null)
-        setEditing(false)
-        setFormData({ name: '', hour: '', description: '' })
+        try {
+            const newEvent = await createEvent({
+                ...marker,
+                creatorId: currentUserId,
+            })
+            setMarkers((current) => [...current, newEvent])
+            setClickPosition(null)
+            setEditing(false)
+            setFormData({ name: '', hour: '', description: '' })
+        } catch (error) {
+            console.error('Error saving marker:', error)
+        }
     }
 
     const handleLogin = (event: FormEvent<HTMLFormElement>) => {
@@ -100,45 +99,60 @@ function App() {
         setLoginError('')
     }
 
-    const handleSubscribe = (markerId: string) => {
+    const handleSubscribe = async (markerId: string) => {
         if (!currentUserId) return
 
-        setUsers((current) =>
-            current.map((user) =>
-                user.id === currentUserId && !user.subscriptions.includes(markerId)
-                    ? { ...user, subscriptions: [...user.subscriptions, markerId] }
-                    : user,
-            ),
-        )
+        try {
+            await subscribeToEvent(currentUserId, markerId)
+            setUsers((current) =>
+                current.map((user) =>
+                    user.id === currentUserId && !user.subscriptions.includes(markerId)
+                        ? { ...user, subscriptions: [...user.subscriptions, markerId] }
+                        : user,
+                ),
+            )
+        } catch (error) {
+            console.error('Error subscribing:', error)
+        }
     }
 
-    const handleDeleteMarker = (markerId: string) => {
+    const handleDeleteMarker = async (markerId: string) => {
         if (!currentUserId) return
         const marker = markers.find(m => m.id === markerId)
         if (!marker || marker.creatorId !== currentUserId) return
 
-        // Remove the marker
-        setMarkers((current) => current.filter(m => m.id !== markerId))
+        try {
+            await deleteEventAPI(markerId)
+            // Remove the marker
+            setMarkers((current) => current.filter(m => m.id !== markerId))
 
-        // Remove subscriptions to this marker from all users
-        setUsers((current) =>
-            current.map((user) => ({
-                ...user,
-                subscriptions: user.subscriptions.filter((id) => id !== markerId),
-            }))
-        )
+            // Remove subscriptions to this marker from all users
+            setUsers((current) =>
+                current.map((user) => ({
+                    ...user,
+                    subscriptions: user.subscriptions.filter((id) => id !== markerId),
+                }))
+            )
+        } catch (error) {
+            console.error('Error deleting marker:', error)
+        }
     }
 
-    const handleUnsubscribe = (markerId: string) => {
+    const handleUnsubscribe = async (markerId: string) => {
         if (!currentUserId) return
 
-        setUsers((current) =>
-            current.map((user) =>
-                user.id === currentUserId
-                    ? { ...user, subscriptions: user.subscriptions.filter((id) => id !== markerId) }
-                    : user,
-            ),
-        )
+        try {
+            await unsubscribeFromEvent(currentUserId, markerId)
+            setUsers((current) =>
+                current.map((user) =>
+                    user.id === currentUserId
+                        ? { ...user, subscriptions: user.subscriptions.filter((id) => id !== markerId) }
+                        : user,
+                ),
+            )
+        } catch (error) {
+            console.error('Error unsubscribing:', error)
+        }
     }
     const currentUser = users.find((user) => user.id === currentUserId) ?? null
     const subscribedMarkers = markers.filter((marker) => currentUser?.subscriptions.includes(marker.id))
