@@ -14,7 +14,7 @@ const parseHour = (hour: string) => {
     const [h, m] = hour.split(':').map(Number)
     return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : Infinity
 }
-
+//hola
 const getBearing = (start: [number, number], end: [number, number]) => {
     const [lat1, lon1] = start.map((value) => (value * Math.PI) / 180)
     const [lat2, lon2] = end.map((value) => (value * Math.PI) / 180)

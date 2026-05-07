@@ -1,5 +1,5 @@
 import sqlite3 from 'sqlite3'
-import { v4 as uuidv4 } from 'crypto'
+import { randomUUID } from 'crypto'
 
 const db = new sqlite3.Database('./events.db')
 
