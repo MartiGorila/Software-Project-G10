@@ -3,6 +3,8 @@ import cors from 'cors'
 import { createClient } from '@supabase/supabase-js'
 import authRouter from './routes/auth'
 import eventsRouter from './routes/events'
+import plansRouter from './routes/plans'
+import usersRouter from './routes/users'
 
 export const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -20,6 +22,8 @@ app.get('/health', (_req, res) => {
 const PORT = process.env.PORT ?? 3000
 app.use('/auth', authRouter)
 app.use('/events', eventsRouter)
+app.use('/plans', plansRouter)
+app.use('/users', usersRouter)
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
