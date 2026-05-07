@@ -17,7 +17,13 @@ const PlanSchema = z.object({
 router.get('/', async (_req, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
-    .select('*, users(username)')
+    .select(`
+        *,
+        creator:users!plans_creator_id_fkey (
+            id,
+            username
+        )
+    `)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -31,7 +37,13 @@ router.get('/', async (_req, res: Response) => {
 router.get('/:id', async (req, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
-    .select('*, users(username)')
+    .select(`
+        *,
+        creator:users!plans_creator_id_fkey (
+            id,
+            username
+        )
+    `)
     .eq('id', req.params.id)
     .single()
 
