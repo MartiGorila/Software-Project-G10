@@ -12,6 +12,8 @@ export type NewMarkerData = Omit<MarkerData, 'creatorId'>
 export type User = {
     id: string
     username: string
-    password: string
-    subscriptions: string[]
+    password?: string
+    subscriptions?: string[]
+    avatar_url?: string
+    created_at?: string
 }

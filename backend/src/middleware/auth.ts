@@ -6,18 +6,22 @@ export interface AuthRequest extends Request {
 }
 
 export function requireAuth(req: AuthRequest, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization
-  if (!header || !header.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Missing or invalid token.' })
-    return
-  }
-
-  const token = header.slice(7)
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string }
-    req.userId = payload.userId
-    next()
-  } catch {
-    res.status(401).json({ error: 'Token expired or invalid.' })
+    const header = req.headers.authorization
+    if (!header || !header.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Missing or invalid token' })
+      return
+    }
+
+    const token = header.slice(7)
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string }
+      req.userId = payload.userId
+      next()
+    } catch (e) {
+      res.status(401).json({ error: 'Token expired or invalid', message: String(e) })
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Internal server error', message: String(e) })
   }
 }
