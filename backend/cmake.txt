@@ -1,0 +1,64 @@
+Resumen
+=======
+Documento mínimo para comprobar que el `backend` se configura, compila y pasa tests según el workflow `.github/workflows/ci.yml` (job `build-and-test`).
+
+Contexto importante
+-------------------
+El workflow ejecuta `cmake -S backend -B backend/build` desde la raíz del repositorio. En este workspace el código está en `Software-Project-G10/backend`; por tanto puedes:
+
+- dejar los archivos en `Software-Project-G10/backend` y actualizar el workflow a `cmake -S Software-Project-G10/backend -B Software-Project-G10/backend/build`, o
+- mover/duplicar la carpeta `backend` al nivel raíz del repo para que `cmake -S backend` funcione sin cambios.
+
+Requisitos del runner
+---------------------
+- `cmake` (>= 3.16 recomendado)
+- `g++` (o cualquier compilador de C++ compatible)
+
+Estructura mínima recomendada
+-----------------------------
+backend/
+  CMakeLists.txt
+  src/
+    main.cpp
+
+Ejemplo mínimo de `CMakeLists.txt` (colocar en la carpeta `backend`):
+-------------------------------------------------
+cmake_minimum_required(VERSION 3.16)
+project(backend_project VERSION 0.1 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(backend_exec src/main.cpp)
+
+enable_testing()
+add_test(NAME basic_run COMMAND backend_exec)
+
+Ejemplo mínimo de `src/main.cpp`:
+------------------------------------------------
+#include <iostream>
+int main() {
+  std::cout << "Hello from backend!" << std::endl;
+  return 0;
+}
+
+Comandos locales para probar (desde la raíz del repo):
+-----------------------------------------------------
+# Si mantienes la estructura actual (Software-Project-G10/backend):
+cmake -S Software-Project-G10/backend -B Software-Project-G10/backend/build
+cmake --build Software-Project-G10/backend/build
+cd Software-Project-G10/backend/build
+ctest --output-on-failure
+
+# Si colocas `backend` en la raíz (sin Software-Project-G10/):
+cmake -S backend -B backend/build
+cmake --build backend/build
+cd backend/build
+ctest --output-on-failure
+
+Qué revisar si la CI falla
+--------------------------
+- Asegúrate de que el path usado por `cmake -S` en el workflow coincide con la ubicación real del directorio `backend`.
+- Verifica que `CMakeLists.txt` define al menos un `add_executable(...)` y que `add_test(...)` apunta a un ejecutable que devuelve 0 en éxito.
+- Si necesitas librerías del sistema, añádelas al paso `Install tools` del workflow.
+
+¿Quieres que cree automáticamente `CMakeLists.txt` y `src/main.cpp` de ejemplo en `Software-Project-G10/backend` y/o que actualice el workflow para usar esa ruta? 
