@@ -79,6 +79,117 @@ export async function loginWithUsername(username: string, password: string) {
   }
 }
 
+// Register user with username, email, and password
+export async function register(username: string, email: string, password: string) {
+  try {
+    const endpoint = '/auth/register'
+    const response = await fetchWithErrorHandling(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    })
+
+    logApiCall('POST', endpoint, response.status)
+
+    if (!response.ok) {
+      let errorMessage = `${response.status} Registration failed`
+      try {
+        const error = await response.json()
+        errorMessage = `${response.status} ${error.error || error.message || 'Registration failed'}`
+      } catch {
+        // Response is not JSON, use default message
+      }
+      logApiCall('POST', endpoint, response.status, errorMessage)
+      throw new Error(errorMessage)
+    }
+
+    const data = await response.json()
+    setAuthToken(data.token)
+    console.log(`✅ 🆕 New user registered: ${username} | Token: ${data.token.substring(0, 20)}...`)
+    return data
+  } catch (error) {
+    const errorMsg = (error as any)?.isNetworkError
+      ? `❌ Network Error: Backend not running on ${API_BASE}`
+      : `❌ Registration error: ${error}`
+    console.error(errorMsg)
+    throw error
+  }
+}
+
+// Login with either username or email
+export async function loginFlexible(usernameOrEmail: string, password: string) {
+  try {
+    const endpoint = '/auth/login-flexible'
+    const response = await fetchWithErrorHandling(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernameOrEmail, password }),
+    })
+
+    logApiCall('POST', endpoint, response.status)
+
+    if (!response.ok) {
+      let errorMessage = `${response.status} Login failed`
+      try {
+        const error = await response.json()
+        errorMessage = `${response.status} ${error.error || error.message || 'Login failed'}`
+      } catch {
+        // Response is not JSON, use default message
+      }
+      logApiCall('POST', endpoint, response.status, errorMessage)
+      throw new Error(errorMessage)
+    }
+
+    const data = await response.json()
+    setAuthToken(data.token)
+    console.log(`✅ 👤 User logged in | Token: ${data.token.substring(0, 20)}...`)
+    return data
+  } catch (error) {
+    const errorMsg = (error as any)?.isNetworkError
+      ? `❌ Network Error: Backend not running on ${API_BASE}`
+      : `❌ Login error: ${error}`
+    console.error(errorMsg)
+    throw error
+  }
+}
+
+// New function: login or register (creates user if doesn't exist)
+export async function loginOrRegister(username: string, password: string) {
+  try {
+    const endpoint = '/auth/login-or-register'
+    const response = await fetchWithErrorHandling(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+
+    logApiCall('POST', endpoint, response.status)
+
+    if (!response.ok) {
+      let errorMessage = `${response.status} Login failed`
+      try {
+        const error = await response.json()
+        errorMessage = `${response.status} ${error.error || error.message || 'Login failed'}`
+      } catch {
+        // Response is not JSON, use default message
+      }
+      logApiCall('POST', endpoint, response.status, errorMessage)
+      throw new Error(errorMessage)
+    }
+
+    const data = await response.json()
+    setAuthToken(data.token)
+    console.log(`✅ ${data.isNewUser ? '🆕 New user created!' : '👤 User logged in'} | Token: ${data.token.substring(0, 20)}...`)
+    return data
+  } catch (error) {
+    const errorMsg = (error as any)?.isNetworkError
+      ? `❌ Network Error: Backend not running on ${API_BASE}`
+      : `❌ Login/Register error: ${error}`
+    console.error(errorMsg)
+    throw error
+  }
+}
+
 export function logout() {
   setAuthToken(null)
   console.log('✅ Logged out')

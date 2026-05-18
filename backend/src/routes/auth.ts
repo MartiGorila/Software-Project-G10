@@ -22,6 +22,12 @@ const LoginUsernameSchema = z.object({
   password: z.string(),
 })
 
+// New schema for login with either username or email
+const LoginFlexibleSchema = z.object({
+  usernameOrEmail: z.string().min(1),
+  password: z.string(),
+})
+
 // POST /auth/register
 router.post('/register', async (req: Request, res: Response) => {
   try {
@@ -139,6 +145,120 @@ router.post('/login-username', async (req: Request, res: Response) => {
 
     const { password_hash: _, ...safeUser } = user
     res.json({ user: safeUser, token })
+  } catch (e) {
+    res.status(500).json({ error: 'Internal server error', message: String(e) })
+  }
+})
+
+// POST /auth/login-flexible (login with either username or email)
+router.post('/login-flexible', async (req: Request, res: Response) => {
+  try {
+    const parsed = LoginFlexibleSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+      return
+    }
+
+    const { usernameOrEmail, password } = parsed.data
+
+    // Try to find user by username or email
+    let userQuery = supabase
+      .from('users')
+      .select('id, username, email, password_hash, created_at')
+
+    // Check if input is an email
+    const isEmail = usernameOrEmail.includes('@')
+    
+    const { data: user, error } = isEmail
+      ? await userQuery.eq('email', usernameOrEmail).single()
+      : await userQuery.eq('username', usernameOrEmail).single()
+
+    if (error || !user) {
+      res.status(401).json({ error: 'Invalid username/email or password' })
+      return
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash)
+    if (!valid) {
+      res.status(401).json({ error: 'Invalid username/email or password' })
+      return
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    )
+
+    const { password_hash: _, ...safeUser } = user
+    res.json({ user: safeUser, token })
+  } catch (e) {
+    res.status(500).json({ error: 'Internal server error', message: String(e) })
+  }
+})
+
+// POST /auth/login-or-register (creates user if doesn't exist)
+router.post('/login-or-register', async (req: Request, res: Response) => {
+  try {
+    const parsed = LoginUsernameSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+      return
+    }
+
+    const { username, password } = parsed.data
+
+    // Try to find existing user
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id, username, email, password_hash, created_at')
+      .eq('username', username)
+      .single()
+
+    // If user exists, verify password
+    if (user) {
+      const valid = await bcrypt.compare(password, user.password_hash)
+      if (!valid) {
+        res.status(401).json({ error: 'Invalid username or password' })
+        return
+      }
+
+      const token = jwt.sign(
+        { userId: user.id },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      )
+
+      const { password_hash: _, ...safeUser } = user
+      res.json({ user: safeUser, token, isNewUser: false })
+      return
+    }
+
+    // User doesn't exist - create new user
+    const password_hash = await bcrypt.hash(password, 10)
+
+    const { data: newUser, error: createError } = await supabase
+      .from('users')
+      .insert({ username, email: `${username}@auto.local`, password_hash })
+      .select('id, username, email, created_at')
+      .single()
+
+    if (createError) {
+      if (createError.code === '23505') {
+        res.status(409).json({ error: 'Username already taken' })
+        return
+      }
+      res.status(500).json({ error: 'Failed to create user', message: createError.message })
+      return
+    }
+
+    const token = jwt.sign(
+      { userId: newUser.id },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    )
+
+    res.status(201).json({ user: newUser, token, isNewUser: true })
   } catch (e) {
     res.status(500).json({ error: 'Internal server error', message: String(e) })
   }

@@ -15,6 +15,8 @@ import EventMarkers from './EventMarkers'
 import SubscriptionPanel from './SubscriptionPanel'
 import {
     loginWithUsername,
+    register,
+    loginFlexible,
     logout,
     fetchUsers,
     fetchEvents,
@@ -60,7 +62,9 @@ function App() {
     const [editing, setEditing] = useState(false)
     const [formData, setFormData] = useState({ name: '', hour: '', description: '' })
     const [showLoginForm, setShowLoginForm] = useState(false)
+    const [isRegisterMode, setIsRegisterMode] = useState(false)
     const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+    const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '' })
     const [loginError, setLoginError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
 
@@ -114,7 +118,7 @@ function App() {
         event.preventDefault()
         try {
             setLoginError('')
-            const response = await loginWithUsername(loginForm.username.trim(), loginForm.password)
+            const response = await loginFlexible(loginForm.username.trim(), loginForm.password)
             setCurrentUserId(response.user.id)
             setCurrentUser({
                 ...response.user,
@@ -122,9 +126,29 @@ function App() {
             })
             setShowLoginForm(false)
             setLoginForm({ username: '', password: '' })
+            setIsRegisterMode(false)
         } catch (error) {
             console.error('Login error:', error)
-            setLoginError('Invalid username or password.')
+            setLoginError('Login failed. Invalid username/email or password.')
+        }
+    }
+
+    const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        try {
+            setLoginError('')
+            const response = await register(registerForm.username.trim(), registerForm.email.trim(), registerForm.password)
+            setCurrentUserId(response.user.id)
+            setCurrentUser({
+                ...response.user,
+                subscriptions: [] // Initialize with empty subscriptions
+            })
+            setShowLoginForm(false)
+            setRegisterForm({ username: '', email: '', password: '' })
+            setIsRegisterMode(false)
+        } catch (error) {
+            console.error('Register error:', error)
+            setLoginError('Registration failed. Please check your input and try again.')
         }
     }
 
@@ -142,7 +166,10 @@ function App() {
             return
         }
         setShowLoginForm((visible) => !visible)
+        setIsRegisterMode(false)
         setLoginError('')
+        setLoginForm({ username: '', password: '' })
+        setRegisterForm({ username: '', email: '', password: '' })
     }
 
     const handleSubscribe = async (markerId: string) => {
@@ -311,36 +338,119 @@ function App() {
             <div className="sidebar-overlay">
                 <div className="login-panel">
                     <button type="button" className="login-button" onClick={handleToggleLogin}>
-                        {currentUserData ? 'Logout' : 'Login'}
+                        {currentUserData ? 'Logout' : 'Login / Register'}
                     </button>
                     {currentUserData ? (
                         <div className="login-info">Logged in as <strong>{currentUserData.username}</strong></div>
                     ) : null}
                     {!currentUserData && showLoginForm ? (
-                        <form className="login-form" onSubmit={handleLogin}>
-                            <div className="login-field">
-                                <label htmlFor="login-username">Username</label>
-                                <input
-                                    id="login-username"
-                                    className="popup-input"
-                                    value={loginForm.username}
-                                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                                />
+                        <>
+                            {/* Toggle buttons */}
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', marginBottom: '12px' }}>
+                                <button
+                                    type="button"
+                                    className="popup-button"
+                                    onClick={() => setIsRegisterMode(false)}
+                                    style={{
+                                        flex: 1,
+                                        background: !isRegisterMode ? '#3b82f6' : '#6b7280',
+                                        border: 'none',
+                                        color: 'white',
+                                        padding: '8px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    Login
+                                </button>
+                                <button
+                                    type="button"
+                                    className="popup-button"
+                                    onClick={() => setIsRegisterMode(true)}
+                                    style={{
+                                        flex: 1,
+                                        background: isRegisterMode ? '#3b82f6' : '#6b7280',
+                                        border: 'none',
+                                        color: 'white',
+                                        padding: '8px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    Register
+                                </button>
                             </div>
-                            <div className="login-field">
-                                <label htmlFor="login-password">Password</label>
-                                <input
-                                    id="login-password"
-                                    className="popup-input"
-                                    type="password"
-                                    value={loginForm.password}
-                                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                                />
-                            </div>
-                            <button type="submit" className="popup-submit">Sign in</button>
-                        </form>
+
+                            {/* Login Form */}
+                            {!isRegisterMode ? (
+                                <form className="login-form" onSubmit={handleLogin}>
+                                    <div className="login-field">
+                                        <label htmlFor="login-username">Username or Email</label>
+                                        <input
+                                            id="login-username"
+                                            className="popup-input"
+                                            value={loginForm.username}
+                                            onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                                            placeholder="Enter username or email"
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="login-password">Password</label>
+                                        <input
+                                            id="login-password"
+                                            className="popup-input"
+                                            type="password"
+                                            value={loginForm.password}
+                                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                                            placeholder="Enter password"
+                                        />
+                                    </div>
+                                    <button type="submit" className="popup-submit">Login</button>
+                                </form>
+                            ) : (
+                                /* Register Form */
+                                <form className="login-form" onSubmit={handleRegister}>
+                                    <div className="login-field">
+                                        <label htmlFor="register-username">Username</label>
+                                        <input
+                                            id="register-username"
+                                            className="popup-input"
+                                            value={registerForm.username}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
+                                            placeholder="Choose a username"
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="register-email">Email</label>
+                                        <input
+                                            id="register-email"
+                                            className="popup-input"
+                                            type="email"
+                                            value={registerForm.email}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                                            placeholder="Enter valid email"
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="register-password">Password</label>
+                                        <input
+                                            id="register-password"
+                                            className="popup-input"
+                                            type="password"
+                                            value={registerForm.password}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                                            placeholder="Choose a password"
+                                        />
+                                    </div>
+                                    <button type="submit" className="popup-submit">Register</button>
+                                </form>
+                            )}
+
+                            {loginError ? <div className="login-error">{loginError}</div> : null}
+                        </>
                     ) : null}
-                    {loginError ? <div className="login-error">{loginError}</div> : null}
                 </div>
 
                 <SubscriptionPanel
