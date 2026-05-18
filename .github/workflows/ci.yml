@@ -12,18 +12,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++
+          cd backend
+          npm ci
 
-      - name: Configure project
-        run: cmake -S backend -B backend/build
-
-      - name: Build project
-        run: cmake --build backend/build
-
-      - name: Run tests
+      - name: Verify backend TypeScript build
         run: |
-          cd backend/build
-          ctest --output-on-failure
+          cd backend
+          npx tsc --project tsconfig.json --noEmit
