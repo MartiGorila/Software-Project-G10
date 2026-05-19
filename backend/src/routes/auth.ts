@@ -168,7 +168,7 @@ router.post('/login-flexible', async (req: Request, res: Response) => {
 
     // Check if input is an email
     const isEmail = usernameOrEmail.includes('@')
-    
+
     const { data: user, error } = isEmail
       ? await userQuery.eq('email', usernameOrEmail).single()
       : await userQuery.eq('username', usernameOrEmail).single()

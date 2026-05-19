@@ -19,6 +19,7 @@ import {
     loginFlexible,
     logout,
     fetchUsers,
+    fetchCurrentUser,
     fetchEvents,
     createEvent,
     deleteEvent,
@@ -119,11 +120,10 @@ function App() {
         try {
             setLoginError('')
             const response = await loginFlexible(loginForm.username.trim(), loginForm.password)
-            setCurrentUserId(response.user.id)
-            setCurrentUser({
-                ...response.user,
-                subscriptions: [] // Initialize with empty subscriptions
-            })
+            // Fetch full user profile (including subscriptions) using the stored token
+            const fullUser = await fetchCurrentUser()
+            setCurrentUserId(fullUser.id)
+            setCurrentUser(fullUser)
             setShowLoginForm(false)
             setLoginForm({ username: '', password: '' })
             setIsRegisterMode(false)
@@ -138,11 +138,10 @@ function App() {
         try {
             setLoginError('')
             const response = await register(registerForm.username.trim(), registerForm.email.trim(), registerForm.password)
-            setCurrentUserId(response.user.id)
-            setCurrentUser({
-                ...response.user,
-                subscriptions: [] // Initialize with empty subscriptions
-            })
+            // After registration, fetch the full user profile (includes subscriptions)
+            const fullUser = await fetchCurrentUser()
+            setCurrentUserId(fullUser.id)
+            setCurrentUser(fullUser)
             setShowLoginForm(false)
             setRegisterForm({ username: '', email: '', password: '' })
             setIsRegisterMode(false)

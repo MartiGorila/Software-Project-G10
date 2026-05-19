@@ -28,20 +28,27 @@ router.get('/', async (_req, res: Response) => {
   }
 })
 
-// GET /users/me — get current user profile
+// GET /users/me — get current user profile (includes subscriptions)
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, email, avatar_url, created_at')
+      .select(`id, username, email, avatar_url, created_at, event_participants(event_id)`)
       .eq('id', req.userId!)
       .single()
 
-    if (error) {
+    if (error || !data) {
       res.status(404).json({ error: 'User not found' })
       return
     }
-    res.json(data)
+
+    // Normalize subscriptions to an array of event IDs
+    const subscriptions = Array.isArray(data.event_participants)
+      ? data.event_participants.map((ep: any) => ep.event_id)
+      : []
+
+    const { event_participants, ...userFields } = data
+    res.json({ ...userFields, subscriptions })
   } catch (e) {
     res.status(500).json({ error: 'Internal server error', message: String(e) })
   }
