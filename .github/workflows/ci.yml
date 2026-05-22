@@ -30,7 +30,7 @@ jobs:
       - name: Start backend server
         run: |
           cd backend
-          npm start &
+          npm run dev &
           echo $! > server.pid
           sleep 5
 
