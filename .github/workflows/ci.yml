@@ -39,6 +39,10 @@ jobs:
           echo $! > server.pid
           sleep 5
 
+      - name: Debug server
+        run: |
+          curl -v http://localhost:3000 || true
+
       - name: Run API tests
         run: |
           chmod +x backend/tests/*.sh
