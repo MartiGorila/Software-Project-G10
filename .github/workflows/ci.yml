@@ -26,3 +26,26 @@ jobs:
         run: |
           cd backend
           npx tsc --project tsconfig.json --noEmit
+
+      - name: Build backend
+        run: |
+          cd backend
+          npm run build
+
+      - name: Start backend server
+        run: |
+          cd backend
+          npm start &
+          echo $! > server.pid
+          sleep 5
+
+      - name: Run API tests
+        run: |
+          chmod +x backend/tests/*.sh
+          backend/tests/user_registration_test.sh
+          backend/tests/events_test.sh
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          kill $(cat backend/server.pid)
