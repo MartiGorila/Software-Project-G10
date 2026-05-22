@@ -27,11 +27,6 @@ jobs:
           cd backend
           npx tsc --project tsconfig.json --noEmit
 
-      - name: Build backend
-        run: |
-          cd backend
-          npm run build
-
       - name: Start backend server
         run: |
           cd backend
