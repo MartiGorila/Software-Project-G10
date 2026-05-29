@@ -1,8 +1,8 @@
-import { MarkerData, User } from './types'
+import { AuthUser, MarkerData } from './types'
 
 type SubscriptionPanelProps = {
     subscribedMarkers: MarkerData[]
-    currentUser: User | null
+    currentUser: AuthUser | null
     onRemoveSubscription: (markerId: string) => void
 }
 
