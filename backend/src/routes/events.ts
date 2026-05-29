@@ -20,11 +20,19 @@ router.get('/', async (_req, res: Response) => {
   const { data, error } = await supabase
     .from('events')
     .select(`
-    *,
-    creator:users!events_creator_id_fkey (
+      *,
+      creator:users!events_creator_id_fkey (
         id,
         username
-    )
+      ),
+      event_participants (
+        user_id,
+        joined_at,
+        user:users!event_participants_user_id_fkey (
+          id,
+          username
+        )
+      )
     `)
     .order('event_time', { ascending: true })
 
