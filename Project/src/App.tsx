@@ -6,14 +6,18 @@ import { FormEvent, useEffect, useState } from 'react'
 import EventMarkers from './EventMarkers'
 import SubscriptionPanel from './SubscriptionPanel'
 import {
-    initializeEvents,
-    saveEvents,
-    initializeUsers,
-    saveUsers,
-    loadCurrentUserId,
-    saveCurrentUserId,
-} from './eventDatabase'
-import { MarkerData, User, NewMarkerData } from './types'
+    createEvent,
+    deleteEvent,
+    getAuthToken,
+    getCurrentUser,
+    getEvents,
+    joinEvent,
+    leaveEvent,
+    login,
+    logout as apiLogout,
+    register,
+} from './api'
+import { ApiEvent, AuthUser, MarkerData, NewMarkerData } from './types'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
 
@@ -39,60 +43,141 @@ const createArrowIcon = (rotation: number) =>
         iconAnchor: [12, 12],
     })
 
+const formatEventHour = (eventTime: string) =>
+    new Date(eventTime).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    })
+
+const toMarkerData = (event: ApiEvent): MarkerData => ({
+    id: event.id,
+    position: [event.lat, event.lng],
+    name: event.name,
+    hour: formatEventHour(event.event_time),
+    description: event.description ?? '',
+    creatorId: event.creator_id,
+})
+
+const buildEventTime = (hour: string) => {
+    const date = new Date()
+    const [hours, minutes] = hour.split(':').map(Number)
+
+    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        date.setHours(hours, minutes, 0, 0)
+    }
+
+    return date.toISOString()
+}
+
 function App() {
-    const [markers, setMarkers] = useState<MarkerData[]>(() => initializeEvents())
-    const [users, setUsers] = useState<User[]>(() => initializeUsers())
-    const [currentUserId, setCurrentUserId] = useState<string | null>(() => loadCurrentUserId())
+    const [apiEvents, setApiEvents] = useState<ApiEvent[]>([])
+    const [markers, setMarkers] = useState<MarkerData[]>([])
+    const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
     const [editing, setEditing] = useState(false)
     const [formData, setFormData] = useState({ name: '', hour: '', description: '' })
     const [showLoginForm, setShowLoginForm] = useState(false)
-    const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+    const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+    const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+    const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '' })
     const [loginError, setLoginError] = useState('')
+    const [isLoading, setIsLoading] = useState(true)
 
-    useEffect(() => {
-        saveEvents(markers)
-    }, [markers])
-
-    useEffect(() => {
-        saveUsers(users)
-    }, [users])
-
-    useEffect(() => {
-        saveCurrentUserId(currentUserId)
-    }, [currentUserId])
-
-    const handleSaveMarker = (marker: NewMarkerData) => {
-        if (!currentUserId) return
-        setMarkers((current) => [...current, { ...marker, creatorId: currentUserId }])
-        setClickPosition(null)
-        setEditing(false)
-        setFormData({ name: '', hour: '', description: '' })
+    const refreshEvents = async () => {
+        const events = await getEvents()
+        setApiEvents(events)
+        setMarkers(events.map(toMarkerData))
     }
 
-    const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault()
+    useEffect(() => {
+        const loadInitialData = async () => {
+            try {
+                setIsLoading(true)
+                await refreshEvents()
 
-        const user = users.find((candidate) => candidate.username === loginForm.username.trim())
-        if (!user || user.password !== loginForm.password) {
-            setLoginError('Invalid username or password.')
-            return
+                if (getAuthToken()) {
+                    try {
+                        const user = await getCurrentUser()
+                        setCurrentUser(user)
+                    } catch {
+                        apiLogout()
+                        setCurrentUser(null)
+                    }
+                }
+            } catch (error) {
+                setLoginError(error instanceof Error ? error.message : 'Failed to load events.')
+            } finally {
+                setIsLoading(false)
+            }
         }
 
-        setCurrentUserId(user.id)
-        setShowLoginForm(false)
-        setLoginError('')
-        setLoginForm({ username: '', password: '' })
+        loadInitialData()
+    }, [])
+
+    const handleSaveMarker = async (marker: NewMarkerData) => {
+        if (!currentUser) return
+
+        try {
+            await createEvent({
+                name: marker.name,
+                description: marker.description,
+                lat: marker.position[0],
+                lng: marker.position[1],
+                event_time: buildEventTime(marker.hour),
+            })
+            await refreshEvents()
+            setClickPosition(null)
+            setEditing(false)
+            setFormData({ name: '', hour: '', description: '' })
+            setLoginError('')
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Failed to create event.')
+        }
+    }
+
+    const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+
+        try {
+            const data = await login(loginForm.email.trim(), loginForm.password)
+            setCurrentUser(data.user)
+            setShowLoginForm(false)
+            setLoginError('')
+            setLoginForm({ email: '', password: '' })
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Login failed.')
+        }
+    }
+
+    const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+
+        try {
+            const data = await register(
+                registerForm.username.trim(),
+                registerForm.email.trim(),
+                registerForm.password,
+            )
+            setCurrentUser(data.user)
+            setShowLoginForm(false)
+            setLoginError('')
+            setRegisterForm({ username: '', email: '', password: '' })
+            setAuthMode('login')
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Registration failed.')
+        }
     }
 
     const handleLogout = () => {
-        setCurrentUserId(null)
+        apiLogout()
+        setCurrentUser(null)
         setShowLoginForm(false)
         setLoginError('')
     }
 
     const handleToggleLogin = () => {
-        if (currentUserId) {
+        if (currentUser) {
             handleLogout()
             return
         }
@@ -100,67 +185,61 @@ function App() {
         setLoginError('')
     }
 
-    const handleSubscribe = (markerId: string) => {
-        if (!currentUserId) return
+    const handleSubscribe = async (markerId: string) => {
+        if (!currentUser) return
 
-        setUsers((current) =>
-            current.map((user) =>
-                user.id === currentUserId && !user.subscriptions.includes(markerId)
-                    ? { ...user, subscriptions: [...user.subscriptions, markerId] }
-                    : user,
-            ),
-        )
+        try {
+            await joinEvent(markerId)
+            await refreshEvents()
+            setLoginError('')
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Failed to subscribe.')
+        }
     }
 
-    const handleDeleteMarker = (markerId: string) => {
-        if (!currentUserId) return
+    const handleDeleteMarker = async (markerId: string) => {
+        if (!currentUser) return
         const marker = markers.find(m => m.id === markerId)
-        if (!marker || marker.creatorId !== currentUserId) return
+        if (!marker || marker.creatorId !== currentUser.id) return
 
-        // Remove the marker
-        setMarkers((current) => current.filter(m => m.id !== markerId))
-
-        // Remove subscriptions to this marker from all users
-        setUsers((current) =>
-            current.map((user) => ({
-                ...user,
-                subscriptions: user.subscriptions.filter((id) => id !== markerId),
-            }))
-        )
+        try {
+            await deleteEvent(markerId)
+            await refreshEvents()
+            setLoginError('')
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Failed to delete event.')
+        }
     }
 
-    const handleUnsubscribe = (markerId: string) => {
-        if (!currentUserId) return
+    const handleUnsubscribe = async (markerId: string) => {
+        if (!currentUser) return
 
-        setUsers((current) =>
-            current.map((user) =>
-                user.id === currentUserId
-                    ? { ...user, subscriptions: user.subscriptions.filter((id) => id !== markerId) }
-                    : user,
-            ),
-        )
+        try {
+            await leaveEvent(markerId)
+            await refreshEvents()
+            setLoginError('')
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Failed to unsubscribe.')
+        }
     }
-    const currentUser = users.find((user) => user.id === currentUserId) ?? null
-    const subscribedMarkers = markers.filter((marker) => currentUser?.subscriptions.includes(marker.id))
+    const subscribedIds = currentUser
+        ? apiEvents
+            .filter((event) =>
+                event.event_participants?.some((participant) => participant.user_id === currentUser.id),
+            )
+            .map((event) => event.id)
+        : []
+    const subscribedMarkers = markers.filter((marker) => subscribedIds.includes(marker.id))
     const orderedSubscribedMarkers = [...subscribedMarkers].sort(
         (a, b) => parseHour(a.hour) - parseHour(b.hour),
     )
     const subscriptionPath = orderedSubscribedMarkers.map((marker) => marker.position)
-    const subscribersByEvent = markers.reduce<Record<string, string[]>>((map, marker) => {
-        map[marker.id] = []
+    const subscribersByEvent = apiEvents.reduce<Record<string, string[]>>((map, event) => {
+        map[event.id] = event.event_participants
+            ?.map((participant) => participant.user?.username)
+            .filter((username): username is string => Boolean(username)) ?? []
         return map
     }, {})
-
-    users.forEach((user) => {
-        user.subscriptions.forEach((markerId) => {
-            if (!subscribersByEvent[markerId]) {
-                subscribersByEvent[markerId] = []
-            }
-            if (!subscribersByEvent[markerId].includes(user.username)) {
-                subscribersByEvent[markerId].push(user.username)
-            }
-        })
-    })
 
     return (
         <div className="map-shell">
@@ -178,10 +257,10 @@ function App() {
 
                 <EventMarkers
                     markers={markers}
-                    subscribedIds={currentUser?.subscriptions ?? []}
+                    subscribedIds={subscribedIds}
                     subscribersByEvent={subscribersByEvent}
                     canSubscribe={!!currentUser}
-                    currentUserId={currentUserId}
+                    currentUserId={currentUser?.id ?? null}
                     onSubscribe={handleSubscribe}
                     onDeleteMarker={handleDeleteMarker}
                     clickPosition={clickPosition}
@@ -227,29 +306,92 @@ function App() {
                         <div className="login-info">Logged in as <strong>{currentUser.username}</strong></div>
                     ) : null}
                     {!currentUser && showLoginForm ? (
-                        <form className="login-form" onSubmit={handleLogin}>
-                            <div className="login-field">
-                                <label htmlFor="login-username">Username</label>
-                                <input
-                                    id="login-username"
-                                    className="popup-input"
-                                    value={loginForm.username}
-                                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                                />
+                        <div>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    className="popup-button"
+                                    onClick={() => {
+                                        setAuthMode('login')
+                                        setLoginError('')
+                                    }}
+                                    disabled={authMode === 'login'}
+                                >
+                                    Login
+                                </button>
+                                <button
+                                    type="button"
+                                    className="popup-button"
+                                    onClick={() => {
+                                        setAuthMode('register')
+                                        setLoginError('')
+                                    }}
+                                    disabled={authMode === 'register'}
+                                >
+                                    Register
+                                </button>
                             </div>
-                            <div className="login-field">
-                                <label htmlFor="login-password">Password</label>
-                                <input
-                                    id="login-password"
-                                    className="popup-input"
-                                    type="password"
-                                    value={loginForm.password}
-                                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                                />
-                            </div>
-                            <button type="submit" className="popup-submit">Sign in</button>
-                        </form>
+                            {authMode === 'login' ? (
+                                <form className="login-form" onSubmit={handleLogin}>
+                                    <div className="login-field">
+                                        <label htmlFor="login-email">Email</label>
+                                        <input
+                                            id="login-email"
+                                            className="popup-input"
+                                            type="email"
+                                            value={loginForm.email}
+                                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="login-password">Password</label>
+                                        <input
+                                            id="login-password"
+                                            className="popup-input"
+                                            type="password"
+                                            value={loginForm.password}
+                                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                                        />
+                                    </div>
+                                    <button type="submit" className="popup-submit">Sign in</button>
+                                </form>
+                            ) : (
+                                <form className="login-form" onSubmit={handleRegister}>
+                                    <div className="login-field">
+                                        <label htmlFor="register-username">Username</label>
+                                        <input
+                                            id="register-username"
+                                            className="popup-input"
+                                            value={registerForm.username}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="register-email">Email</label>
+                                        <input
+                                            id="register-email"
+                                            className="popup-input"
+                                            type="email"
+                                            value={registerForm.email}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="login-field">
+                                        <label htmlFor="register-password">Password</label>
+                                        <input
+                                            id="register-password"
+                                            className="popup-input"
+                                            type="password"
+                                            value={registerForm.password}
+                                            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                                        />
+                                    </div>
+                                    <button type="submit" className="popup-submit">Register</button>
+                                </form>
+                            )}
+                        </div>
                     ) : null}
+                    {isLoading ? <div className="login-info">Loading events...</div> : null}
                     {loginError ? <div className="login-error">{loginError}</div> : null}
                 </div>
 

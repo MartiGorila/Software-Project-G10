@@ -1,9 +1,16 @@
-import { MarkerData, User } from './types'
+import { MarkerData } from './types'
 
 const EVENT_STORAGE_KEY = 'createdEvents'
 const USER_STORAGE_KEY = 'appUsers'
 const CURRENT_USER_KEY = 'currentUserId'
 const LEGACY_EVENT_STORAGE_KEY = 'savedMarkers'
+
+type StoredUser = {
+    id: string
+    username: string
+    password: string
+    subscriptions: string[]
+}
 
 const DEFAULT_EVENTS: MarkerData[] = [
     {
@@ -48,7 +55,7 @@ const DEFAULT_EVENTS: MarkerData[] = [
     },
 ]
 
-const DEFAULT_USERS: User[] = [
+const DEFAULT_USERS: StoredUser[] = [
     { id: 'user-1', username: 'alice', password: 'alice123', subscriptions: ['event-1', 'event-3'] },
     { id: 'user-2', username: 'bob', password: 'bob123', subscriptions: ['event-2'] },
     { id: 'user-3', username: 'carol', password: 'carol123', subscriptions: ['event-3', 'event-4'] },
@@ -67,13 +74,13 @@ export function saveEvents(events: MarkerData[]): void {
     localStorage.setItem(EVENT_STORAGE_KEY, JSON.stringify(events))
 }
 
-export function loadUsers(): User[] {
+export function loadUsers(): StoredUser[] {
     if (typeof window === 'undefined') return DEFAULT_USERS
     const stored = localStorage.getItem(USER_STORAGE_KEY)
     return stored ? JSON.parse(stored) : DEFAULT_USERS
 }
 
-export function saveUsers(users: User[]): void {
+export function saveUsers(users: StoredUser[]): void {
     if (typeof window === 'undefined') return
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(users))
 }
@@ -105,7 +112,7 @@ export function initializeEvents(): MarkerData[] {
     return DEFAULT_EVENTS
 }
 
-export function initializeUsers(): User[] {
+export function initializeUsers(): StoredUser[] {
     const users = loadUsers()
     if (users.length > 0) {
         return users
