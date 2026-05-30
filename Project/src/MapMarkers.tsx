@@ -230,7 +230,7 @@ export default function MapMarkers({
             {clickPosition && (
                 <>
                     <Marker position={clickPosition} />
-                    <Popup position={clickPosition} onClose={onCloseClick}>
+                    <Popup position={clickPosition} eventHandlers={{ remove: onCloseClick }}>
                         <div className="marker-popup">
                             <div className="marker-popup__title">New location</div>
                             <div className="marker-popup__hint">
