@@ -62,16 +62,10 @@ export const ownPlanIcon = new L.DivIcon({
     popupAnchor: [0, -46],
 })
 
-// ── Click handler ─────────────────────────────────────────────────────────────
-
 function ClickHandler({ onClick }: { onClick: (pos: [number, number]) => void }) {
-    useMapEvents({
-        click(e) { onClick([e.latlng.lat, e.latlng.lng]) },
-    })
+    useMapEvents({ click(e) { onClick([e.latlng.lat, e.latlng.lng]) } })
     return null
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string) {
     return new Date(iso).toLocaleString('en-GB', {
@@ -83,8 +77,6 @@ function formatTime(iso: string) {
 function formatBudget(budget: number | null) {
     return budget != null ? `€${budget.toFixed(2)}` : null
 }
-
-// ── Props ─────────────────────────────────────────────────────────────────────
 
 type Props = {
     events: ApiEvent[]
@@ -101,8 +93,6 @@ type Props = {
     clickPosition: [number, number] | null
     onCloseClick: () => void
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function MapMarkers({
     events,
@@ -121,13 +111,12 @@ export default function MapMarkers({
 }: Props) {
     return (
         <>
-            {/* Event markers */}
             {events.map((event) => {
                 const isOwn = event.creator_id === currentUserId
                 const joined = joinedEventIds.has(event.id)
                 const participantCount = event.event_participants?.length ?? 0
                 const isFull = event.capacity != null && participantCount >= event.capacity
-                const subscribers = event.event_participants ?? []
+                const tags = event.tags ?? []
 
                 return (
                     <Marker
@@ -143,33 +132,19 @@ export default function MapMarkers({
                                     <span>🕐 {formatTime(event.event_time)}</span>
                                     <span>
                                         👤 by{' '}
-                                        <button
-                                            className="subscriber-name-btn"
-                                            onClick={() => onViewUserProfile(event.creator_id)}
-                                        >
+                                        <button className="subscriber-name-btn" onClick={() => onViewUserProfile(event.creator_id)}>
                                             {event.creator.username}
                                         </button>
                                     </span>
                                     {event.capacity != null && (
                                         <span>👥 {participantCount}/{event.capacity} joined</span>
                                     )}
-                                    {event.budget != null && (
-                                        <span>💰 {formatBudget(event.budget)}</span>
-                                    )}
+                                    {event.budget != null && <span>💰 {formatBudget(event.budget)}</span>}
                                 </div>
-                                {subscribers.length > 0 && (
-                                    <div className="marker-popup__desc" style={{ fontSize: '0.8rem' }}>
-                                        Joined:{' '}
-                                        {subscribers.map((p, i) => (
-                                            <span key={p.user_id}>
-                                                <button
-                                                    className="subscriber-name-btn"
-                                                    onClick={() => onViewUserProfile(p.user_id)}
-                                                >
-                                                    {p.user?.username ?? 'Unknown'}
-                                                </button>
-                                                {i < subscribers.length - 1 ? ', ' : ''}
-                                            </span>
+                                {tags.length > 0 && (
+                                    <div className="marker-popup__tags">
+                                        {tags.map((tag) => (
+                                            <span key={tag.id} className="marker-popup__tag">#{tag.name}</span>
                                         ))}
                                     </div>
                                 )}
@@ -204,9 +179,9 @@ export default function MapMarkers({
                 )
             })}
 
-            {/* Plan markers */}
             {plans.map((plan) => {
                 const isOwn = plan.creator_id === currentUserId
+                const tags = plan.tags ?? []
                 return (
                     <Marker
                         key={`plan-${plan.id}`}
@@ -220,17 +195,19 @@ export default function MapMarkers({
                                 <div className="marker-popup__meta">
                                     <span>
                                         👤 by{' '}
-                                        <button
-                                            className="subscriber-name-btn"
-                                            onClick={() => onViewUserProfile(plan.creator_id)}
-                                        >
+                                        <button className="subscriber-name-btn" onClick={() => onViewUserProfile(plan.creator_id)}>
                                             {plan.creator.username}
                                         </button>
                                     </span>
-                                    {plan.budget != null && (
-                                        <span>💰 {formatBudget(plan.budget)}</span>
-                                    )}
+                                    {plan.budget != null && <span>💰 {formatBudget(plan.budget)}</span>}
                                 </div>
+                                {tags.length > 0 && (
+                                    <div className="marker-popup__tags">
+                                        {tags.map((tag) => (
+                                            <span key={tag.id} className="marker-popup__tag">#{tag.name}</span>
+                                        ))}
+                                    </div>
+                                )}
                                 {plan.description && (
                                     <div className="marker-popup__desc">{plan.description}</div>
                                 )}
@@ -250,11 +227,10 @@ export default function MapMarkers({
                 )
             })}
 
-            {/* Click position marker */}
             {clickPosition && (
                 <>
                     <Marker position={clickPosition} />
-                    <Popup position={clickPosition} eventHandlers={{ remove: onCloseClick }}>
+                    <Popup position={clickPosition} onClose={onCloseClick}>
                         <div className="marker-popup">
                             <div className="marker-popup__title">New location</div>
                             <div className="marker-popup__hint">

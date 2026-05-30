@@ -1,24 +1,40 @@
 import { FormEvent, useState } from 'react'
-import { createEvent, createPlan, ApiEvent, ApiPlan } from './api'
+import { createEvent, createPlan, ApiEvent, ApiPlan, Tag } from './api'
 
 type Props = {
     position: [number, number] | null
+    availableTags: Tag[]
     onEventCreated: (event: ApiEvent) => void
     onPlanCreated: (plan: ApiPlan) => void
     onCancel: () => void
 }
 
-export default function CreatePanel({ position, onEventCreated, onPlanCreated, onCancel }: Props) {
+export default function CreatePanel({
+    position,
+    availableTags,
+    onEventCreated,
+    onPlanCreated,
+    onCancel,
+}: Props) {
     const [type, setType] = useState<'event' | 'plan'>('event')
     const [name, setName] = useState('')
     const [description, setDescription] = useState('')
     const [eventTime, setEventTime] = useState('')
     const [capacity, setCapacity] = useState('')
     const [budget, setBudget] = useState('')
+    const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
     if (!position) return null
+
+    const toggleTag = (tagId: number) => {
+        setSelectedTagIds((prev) => {
+            const next = new Set(prev)
+            next.has(tagId) ? next.delete(tagId) : next.add(tagId)
+            return next
+        })
+    }
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault()
@@ -26,6 +42,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
         setSaving(true)
         setError('')
         try {
+            const tag_ids = [...selectedTagIds]
             if (type === 'event') {
                 if (!eventTime) throw new Error('Event time is required')
                 const event = await createEvent({
@@ -36,6 +53,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                     event_time: new Date(eventTime).toISOString(),
                     capacity: capacity ? parseInt(capacity) : undefined,
                     budget: budget ? parseFloat(budget) : undefined,
+                    tag_ids,
                 })
                 onEventCreated(event)
             } else {
@@ -45,6 +63,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                     lat: position[0],
                     lng: position[1],
                     budget: budget ? parseFloat(budget) : undefined,
+                    tag_ids,
                 })
                 onPlanCreated(plan)
             }
@@ -53,6 +72,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
             setEventTime('')
             setCapacity('')
             setBudget('')
+            setSelectedTagIds(new Set())
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Something went wrong')
         } finally {
@@ -95,6 +115,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                         required
                     />
                 </div>
+
                 <div className="create-panel__field">
                     <label className="create-panel__label">Description</label>
                     <textarea
@@ -104,6 +125,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                         onChange={(e) => setDescription(e.target.value)}
                     />
                 </div>
+
                 {type === 'event' && (
                     <div className="create-panel__field">
                         <label className="create-panel__label">Date & Time *</label>
@@ -116,6 +138,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                         />
                     </div>
                 )}
+
                 {type === 'event' && (
                     <div className="create-panel__field">
                         <label className="create-panel__label">Capacity</label>
@@ -129,6 +152,7 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                         />
                     </div>
                 )}
+
                 <div className="create-panel__field">
                     <label className="create-panel__label">Budget (€)</label>
                     <input
@@ -141,7 +165,27 @@ export default function CreatePanel({ position, onEventCreated, onPlanCreated, o
                         placeholder="Optional"
                     />
                 </div>
+
+                {availableTags.length > 0 && (
+                    <div className="create-panel__field">
+                        <label className="create-panel__label">Tags</label>
+                        <div className="create-panel__tags">
+                            {availableTags.map((tag) => (
+                                <button
+                                    key={tag.id}
+                                    type="button"
+                                    className={`create-panel__tag-btn ${selectedTagIds.has(tag.id) ? 'create-panel__tag-btn--active' : ''}`}
+                                    onClick={() => toggleTag(tag.id)}
+                                >
+                                    #{tag.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {error && <div className="create-panel__error">{error}</div>}
+
                 <button
                     type="submit"
                     className={`create-panel__submit create-panel__submit--${type}`}

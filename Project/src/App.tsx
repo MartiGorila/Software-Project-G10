@@ -1,9 +1,11 @@
+import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { FormEvent, useEffect, useState } from 'react'
 import MapMarkers from './MapMarkers'
 import CreatePanel from './CreatePanel'
+import FilterPanel from './FilterPanel'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
@@ -12,6 +14,7 @@ import {
     getCurrentUser,
     getEvents,
     getPlans,
+    getTags,
     joinEvent,
     leaveEvent,
     deleteEvent,
@@ -22,17 +25,31 @@ import {
     ApiEvent,
     ApiPlan,
     AuthUser,
+    Tag,
 } from './api'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
 
+// ── Filtering helpers ─────────────────────────────────────────────────────────
+
+function matchesTags(itemTags: Tag[] | undefined, selectedIds: Set<number>): boolean {
+    if (selectedIds.size === 0) return true
+    const ids = (itemTags ?? []).map((t) => t.id)
+    return [...selectedIds].every((id) => ids.includes(id))
+}
+
 function App() {
     const [events, setEvents] = useState<ApiEvent[]>([])
     const [plans, setPlans] = useState<ApiPlan[]>([])
+    const [allTags, setAllTags] = useState<Tag[]>([])
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
+
+    // ── Filter state ──────────────────────────────────────────────────────────
+    const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
+    const [filterType, setFilterType] = useState<'all' | 'events' | 'plans'>('all')
 
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
 
@@ -47,15 +64,16 @@ function App() {
 
     // ── Load data ─────────────────────────────────────────────────────────────
 
-    const refreshData = async () => {
+    const refreshData = async (user?: AuthUser | null) => {
+        const resolvedUser = user !== undefined ? user : currentUser
         const [eventsData, plansData] = await Promise.all([getEvents(), getPlans()])
         setEvents(eventsData)
         setPlans(plansData)
 
-        if (currentUser) {
+        if (resolvedUser) {
             const joined = new Set(
                 eventsData
-                    .filter((e) => e.event_participants?.some((p) => p.user_id === currentUser.id))
+                    .filter((e) => e.event_participants?.some((p) => p.user_id === resolvedUser.id))
                     .map((e) => e.id),
             )
             setJoinedEventIds(joined)
@@ -66,9 +84,14 @@ function App() {
         const init = async () => {
             setIsLoading(true)
             try {
-                const [eventsData, plansData] = await Promise.all([getEvents(), getPlans()])
+                const [eventsData, plansData, tagsData] = await Promise.all([
+                    getEvents(),
+                    getPlans(),
+                    getTags(),
+                ])
                 setEvents(eventsData)
                 setPlans(plansData)
+                setAllTags(tagsData)
 
                 if (getAuthToken()) {
                     try {
@@ -94,6 +117,15 @@ function App() {
         init()
     }, [])
 
+    // ── Filtered markers ──────────────────────────────────────────────────────
+
+    const filteredEvents = (filterType === 'plans' ? [] : events).filter((e) =>
+        matchesTags(e.tags, selectedTagIds),
+    )
+    const filteredPlans = (filterType === 'events' ? [] : plans).filter((p) =>
+        matchesTags(p.tags, selectedTagIds),
+    )
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
@@ -104,7 +136,7 @@ function App() {
             setCurrentUser(data.user)
             setShowLoginForm(false)
             setLoginForm({ email: '', password: '' })
-            await refreshData()
+            await refreshData(data.user)
         } catch (err) {
             setLoginError(err instanceof Error ? err.message : 'Login failed.')
         }
@@ -136,12 +168,6 @@ function App() {
         setLoginError('')
         setShowOwnProfile(false)
         setViewingUserId(null)
-    }
-
-    const handleToggleLogin = () => {
-        if (currentUser) { handleLogout(); return }
-        setShowLoginForm((v) => !v)
-        setLoginError('')
     }
 
     // ── Join / Leave ──────────────────────────────────────────────────────────
@@ -190,17 +216,37 @@ function App() {
 
     // ── Create ────────────────────────────────────────────────────────────────
 
-    const handleEventCreated = (event: ApiEvent) => {
+    const handleEventCreated = async (event: ApiEvent) => {
         setEvents((prev) => [...prev, event])
         setClickPosition(null)
+        // Refresh tags in case new ones were created
+        const tags = await getTags()
+        setAllTags(tags)
     }
 
-    const handlePlanCreated = (plan: ApiPlan) => {
+    const handlePlanCreated = async (plan: ApiPlan) => {
         setPlans((prev) => [...prev, plan])
         setClickPosition(null)
+        const tags = await getTags()
+        setAllTags(tags)
     }
 
-    // ── Profile update ────────────────────────────────────────────────────────
+    // ── Filter actions ────────────────────────────────────────────────────────
+
+    const handleToggleTag = (tagId: number) => {
+        setSelectedTagIds((prev) => {
+            const next = new Set(prev)
+            next.has(tagId) ? next.delete(tagId) : next.add(tagId)
+            return next
+        })
+    }
+
+    const handleClearFilters = () => {
+        setSelectedTagIds(new Set())
+        setFilterType('all')
+    }
+
+    // ── Profile ───────────────────────────────────────────────────────────────
 
     const handleProfileUpdated = () => {
         getCurrentUser().then(setCurrentUser).catch(console.error)
@@ -224,8 +270,8 @@ function App() {
                 </Marker>
 
                 <MapMarkers
-                    events={events}
-                    plans={plans}
+                    events={filteredEvents}
+                    plans={filteredPlans}
                     currentUserId={currentUser?.id ?? null}
                     isLoggedIn={!!currentUser}
                     joinedEventIds={joinedEventIds}
@@ -244,56 +290,43 @@ function App() {
             <div className="sidebar-overlay">
                 {/* Login panel */}
                 <div className="login-panel">
-                    <button type="button" className="login-button" onClick={handleToggleLogin}>
+                    <button
+                        type="button"
+                        className="login-button"
+                        onClick={() => {
+                            if (currentUser) { handleLogout(); return }
+                            setShowLoginForm((v) => !v)
+                            setLoginError('')
+                        }}
+                    >
                         {currentUser ? 'Logout' : 'Login / Register'}
                     </button>
                     {currentUser && (
-                        <div className="login-info">
-                            Logged in as <strong>{currentUser.username}</strong>
-                        </div>
+                        <div className="login-info">Logged in as <strong>{currentUser.username}</strong></div>
                     )}
                     {!currentUser && showLoginForm && (
                         <div>
                             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                <button
-                                    type="button"
-                                    className="popup-button"
+                                <button type="button" className="popup-button"
                                     onClick={() => { setAuthMode('login'); setLoginError('') }}
-                                    disabled={authMode === 'login'}
-                                >
-                                    Login
-                                </button>
-                                <button
-                                    type="button"
-                                    className="popup-button"
+                                    disabled={authMode === 'login'}>Login</button>
+                                <button type="button" className="popup-button"
                                     onClick={() => { setAuthMode('register'); setLoginError('') }}
-                                    disabled={authMode === 'register'}
-                                >
-                                    Register
-                                </button>
+                                    disabled={authMode === 'register'}>Register</button>
                             </div>
-
                             {authMode === 'login' ? (
                                 <form className="login-form" onSubmit={handleLogin}>
                                     <div className="login-field">
                                         <label htmlFor="login-email">Email</label>
-                                        <input
-                                            id="login-email"
-                                            className="popup-input"
-                                            type="email"
+                                        <input id="login-email" className="popup-input" type="email"
                                             value={loginForm.email}
-                                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                                        />
+                                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
                                     </div>
                                     <div className="login-field">
                                         <label htmlFor="login-password">Password</label>
-                                        <input
-                                            id="login-password"
-                                            className="popup-input"
-                                            type="password"
+                                        <input id="login-password" className="popup-input" type="password"
                                             value={loginForm.password}
-                                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                                        />
+                                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
                                     </div>
                                     <button type="submit" className="popup-submit">Sign in</button>
                                 </form>
@@ -301,32 +334,21 @@ function App() {
                                 <form className="login-form" onSubmit={handleRegister}>
                                     <div className="login-field">
                                         <label htmlFor="register-username">Username</label>
-                                        <input
-                                            id="register-username"
-                                            className="popup-input"
+                                        <input id="register-username" className="popup-input"
                                             value={registerForm.username}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
-                                        />
+                                            onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} />
                                     </div>
                                     <div className="login-field">
                                         <label htmlFor="register-email">Email</label>
-                                        <input
-                                            id="register-email"
-                                            className="popup-input"
-                                            type="email"
+                                        <input id="register-email" className="popup-input" type="email"
                                             value={registerForm.email}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                                        />
+                                            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} />
                                     </div>
                                     <div className="login-field">
                                         <label htmlFor="register-password">Password</label>
-                                        <input
-                                            id="register-password"
-                                            className="popup-input"
-                                            type="password"
+                                        <input id="register-password" className="popup-input" type="password"
                                             value={registerForm.password}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                                        />
+                                            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} />
                                     </div>
                                     <button type="submit" className="popup-submit">Register</button>
                                 </form>
@@ -353,19 +375,23 @@ function App() {
                     </div>
                 </div>
 
+                {/* Filter panel */}
+                <FilterPanel
+                    tags={allTags}
+                    selectedTagIds={selectedTagIds}
+                    onToggleTag={handleToggleTag}
+                    onClear={handleClearFilters}
+                    filterType={filterType}
+                    onFilterType={setFilterType}
+                />
+
                 {/* Profile button */}
                 {currentUser && (
-                    <button
-                        type="button"
-                        className="sidebar-profile-btn"
-                        onClick={() => setShowOwnProfile(true)}
-                    >
+                    <button type="button" className="sidebar-profile-btn" onClick={() => setShowOwnProfile(true)}>
                         <span className="sidebar-profile-avatar">
-                            {currentUser.avatar_url ? (
-                                <img src={currentUser.avatar_url} alt={currentUser.username} />
-                            ) : (
-                                currentUser.username.slice(0, 2).toUpperCase()
-                            )}
+                            {currentUser.avatar_url
+                                ? <img src={currentUser.avatar_url} alt={currentUser.username} />
+                                : currentUser.username.slice(0, 2).toUpperCase()}
                         </span>
                         <span className="sidebar-profile-label">
                             <strong>{currentUser.username}</strong>
@@ -387,6 +413,7 @@ function App() {
                 {clickPosition && currentUser && (
                     <CreatePanel
                         position={clickPosition}
+                        availableTags={allTags}
                         onEventCreated={handleEventCreated}
                         onPlanCreated={handlePlanCreated}
                         onCancel={() => setClickPosition(null)}
@@ -394,7 +421,6 @@ function App() {
                 )}
             </div>
 
-            {/* Profile modals */}
             {showOwnProfile && currentUser && (
                 <ProfileModal
                     onClose={() => setShowOwnProfile(false)}
