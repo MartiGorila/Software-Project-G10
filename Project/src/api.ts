@@ -33,6 +33,11 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type Tag = {
+    id: number
+    name: string
+}
+
 export type AuthUser = {
     id: string
     username: string
@@ -58,6 +63,7 @@ export type ApiEvent = {
         joined_at: string
         user?: { id: string; username: string }
     }[]
+    tags?: Tag[]
 }
 
 export type ApiPlan = {
@@ -70,6 +76,7 @@ export type ApiPlan = {
     budget: number | null
     created_at: string
     creator: { id: string; username: string }
+    tags?: Tag[]
 }
 
 export type OwnProfile = AuthUser
@@ -132,28 +139,62 @@ export function getPublicUser(userId: string): Promise<PublicProfile> {
     return apiFetch<PublicProfile>(`/users/${userId}`)
 }
 
-// ── Avatar upload (direct to Supabase Storage) ────────────────────────────────
+export async function uploadAvatar(file: File): Promise<AuthUser> {
+    // Get current user id first
+    const me = await getCurrentUser()
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-export async function uploadAvatar(
-    file: File,
-    userId: string,
-    supabaseUrl: string,
-    supabaseAnonKey: string,
-): Promise<string> {
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
     const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `avatars/${userId}.${ext}`
+    const path = `avatars/${me.id}.${ext}`
 
     const { error } = await supabase.storage
         .from('avatars')
         .upload(path, file, { upsert: true, contentType: file.type })
-
     if (error) throw new Error(error.message)
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-    return data.publicUrl
+    const publicUrl = data.publicUrl
+
+    // Save the URL back to the user record and return updated profile
+    return updateCurrentUser({ avatar_url: publicUrl })
+}
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+
+export function getTags(): Promise<Tag[]> {
+    return apiFetch<Tag[]>('/tags')
+}
+
+export function createTag(name: string): Promise<Tag> {
+    return apiFetch<Tag>('/tags', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+    })
+}
+
+export function addTagToEvent(eventId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/events/${eventId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tag_id: tagId }),
+    })
+}
+
+export function removeTagFromEvent(eventId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/events/${eventId}/tags/${tagId}`, { method: 'DELETE' })
+}
+
+export function addTagToPlan(planId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/plans/${planId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tag_id: tagId }),
+    })
+}
+
+export function removeTagFromPlan(planId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/plans/${planId}/tags/${tagId}`, { method: 'DELETE' })
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -174,6 +215,7 @@ export function createEvent(body: {
     event_time: string
     budget?: number
     capacity?: number
+    tag_ids?: number[]
 }): Promise<ApiEvent> {
     return apiFetch<ApiEvent>('/events', {
         method: 'POST',
@@ -227,6 +269,7 @@ export function createPlan(body: {
     lat: number
     lng: number
     budget?: number
+    tag_ids?: number[]
 }): Promise<ApiPlan> {
     return apiFetch<ApiPlan>('/plans', {
         method: 'POST',
