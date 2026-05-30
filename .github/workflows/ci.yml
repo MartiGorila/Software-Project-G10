@@ -63,10 +63,24 @@ jobs:
           cat backend/server.log
           exit 1
 
+      - name: Verify jq is available
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          jq --version
+
       - name: Run backend API tests
+        id: api_tests
         run: |
           chmod +x backend/tests/*.sh
-          backend/tests/user_registration_test.sh
+          backend/tests/run_all.sh
+        continue-on-error: true
+
+      - name: Print backend server log after API test failure
+        if: steps.api_tests.outcome == 'failure'
+        run: |
+          cat backend/server.log
+          exit 1
 
       - name: Stop backend server
         if: always()
