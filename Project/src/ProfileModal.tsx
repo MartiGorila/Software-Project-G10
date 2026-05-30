@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getCurrentUser, updateCurrentUser } from './api'
+import { ChangeEvent, useEffect, useRef, useState } from 'react'
+import { getCurrentUser, updateCurrentUser, uploadAvatar } from './api'
 import { OwnProfile } from './types'
 
 type ProfileModalProps = {
@@ -43,6 +43,9 @@ export default function ProfileModal({ onClose, onProfileUpdated }: ProfileModal
     const [username, setUsername] = useState('')
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState('')
+    const [uploading, setUploading] = useState(false)
+    const [uploadError, setUploadError] = useState('')
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         let cancelled = false
@@ -97,6 +100,25 @@ export default function ProfileModal({ onClose, onProfileUpdated }: ProfileModal
         }
     }
 
+    const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+
+        if (!file) return
+
+        try {
+            setUploading(true)
+            setUploadError('')
+            const updated = await uploadAvatar(file)
+            setProfile(updated)
+            onProfileUpdated(updated)
+        } catch (uploadErrorValue) {
+            setUploadError(uploadErrorValue instanceof Error ? uploadErrorValue.message : 'Failed to upload avatar.')
+        } finally {
+            setUploading(false)
+        }
+    }
+
     const memberSince = profile?.created_at
         ? new Date(profile.created_at).toLocaleDateString('en-GB', {
               day: 'numeric',
@@ -122,6 +144,22 @@ export default function ProfileModal({ onClose, onProfileUpdated }: ProfileModal
                         <div className="profile-avatar-row">
                             <div className="profile-avatar-wrap">
                                 <Avatar url={profile.avatar_url} username={profile.username} />
+                                <button
+                                    className="profile-avatar-edit-btn"
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    aria-label="Change avatar"
+                                >
+                                    {uploading ? '...' : 'Change'}
+                                </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    className="profile-avatar-input"
+                                    onChange={handleAvatarChange}
+                                />
                             </div>
 
                             <div className="profile-identity">
@@ -179,6 +217,8 @@ export default function ProfileModal({ onClose, onProfileUpdated }: ProfileModal
                                 <span className="profile-email">{profile.email}</span>
                             </div>
                         </div>
+
+                        {uploadError && <div className="profile-upload-error">{uploadError}</div>}
 
                         <div className="profile-meta-grid">
                             {memberSince && (
