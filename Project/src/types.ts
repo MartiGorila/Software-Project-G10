@@ -50,3 +50,18 @@ export type AuthUser = {
     avatar_url?: string | null
     created_at?: string
 }
+
+export type OwnProfile = {
+    id: string
+    username: string
+    email: string
+    avatar_url: string | null
+    created_at: string
+}
+
+export type PublicProfile = {
+    id: string
+    username: string
+    avatar_url: string | null
+    created_at: string
+}

@@ -4,6 +4,8 @@ import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { FormEvent, useEffect, useState } from 'react'
 import EventMarkers from './EventMarkers'
+import ProfileModal from './ProfileModal'
+import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
 import {
     createEvent,
@@ -17,7 +19,7 @@ import {
     logout as apiLogout,
     register,
 } from './api'
-import { ApiEvent, AuthUser, MarkerData, NewMarkerData } from './types'
+import { ApiEvent, AuthUser, MarkerData, NewMarkerData, OwnProfile } from './types'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
 
@@ -83,6 +85,8 @@ function App() {
     const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '' })
     const [loginError, setLoginError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
+    const [showOwnProfile, setShowOwnProfile] = useState(false)
+    const [viewingUserId, setViewingUserId] = useState<string | null>(null)
 
     const refreshEvents = async () => {
         const events = await getEvents()
@@ -174,6 +178,8 @@ function App() {
         setCurrentUser(null)
         setShowLoginForm(false)
         setLoginError('')
+        setShowOwnProfile(false)
+        setViewingUserId(null)
     }
 
     const handleToggleLogin = () => {
@@ -222,6 +228,16 @@ function App() {
             setLoginError(error instanceof Error ? error.message : 'Failed to unsubscribe.')
         }
     }
+
+    const handleProfileUpdated = async (profile: OwnProfile) => {
+        setCurrentUser(profile)
+        try {
+            await refreshEvents()
+        } catch (error) {
+            setLoginError(error instanceof Error ? error.message : 'Failed to refresh events.')
+        }
+    }
+
     const subscribedIds = currentUser
         ? apiEvents
             .filter((event) =>
@@ -234,10 +250,13 @@ function App() {
         (a, b) => parseHour(a.hour) - parseHour(b.hour),
     )
     const subscriptionPath = orderedSubscribedMarkers.map((marker) => marker.position)
-    const subscribersByEvent = apiEvents.reduce<Record<string, string[]>>((map, event) => {
+    const subscribersByEvent = apiEvents.reduce<Record<string, { username: string; userId: string }[]>>((map, event) => {
         map[event.id] = event.event_participants
-            ?.map((participant) => participant.user?.username)
-            .filter((username): username is string => Boolean(username)) ?? []
+            ?.filter((participant) => Boolean(participant.user_id))
+            .map((participant) => ({
+                userId: participant.user_id,
+                username: participant.user?.username ?? 'Unknown user',
+            })) ?? []
         return map
     }, {})
 
@@ -263,6 +282,7 @@ function App() {
                     currentUserId={currentUser?.id ?? null}
                     onSubscribe={handleSubscribe}
                     onDeleteMarker={handleDeleteMarker}
+                    onViewUserProfile={setViewingUserId}
                     clickPosition={clickPosition}
                     editing={editing}
                     setEditing={setEditing}
@@ -399,8 +419,21 @@ function App() {
                     subscribedMarkers={orderedSubscribedMarkers}
                     onRemoveSubscription={handleUnsubscribe}
                     currentUser={currentUser}
+                    onOpenProfile={() => setShowOwnProfile(true)}
                 />
             </div>
+            {showOwnProfile && currentUser && (
+                <ProfileModal
+                    onClose={() => setShowOwnProfile(false)}
+                    onProfileUpdated={handleProfileUpdated}
+                />
+            )}
+            {viewingUserId && (
+                <PublicProfileModal
+                    userId={viewingUserId}
+                    onClose={() => setViewingUserId(null)}
+                />
+            )}
         </div>
     )
 }
