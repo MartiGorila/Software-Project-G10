@@ -142,8 +142,10 @@ export function getPublicUser(userId: string): Promise<PublicProfile> {
 export async function uploadAvatar(file: File): Promise<AuthUser> {
     // Get current user id first
     const me = await getCurrentUser()
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const env = (import.meta as any).env ?? {}
+    const supabaseUrl = env.VITE_SUPABASE_URL as string
+    const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string
 
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(supabaseUrl, supabaseAnonKey)
