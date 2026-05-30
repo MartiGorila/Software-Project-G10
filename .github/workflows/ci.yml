@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install backend dependencies
         run: |
@@ -26,3 +26,51 @@ jobs:
         run: |
           cd backend
           npx tsc --project tsconfig.json --noEmit
+
+      - name: Install frontend dependencies
+        run: |
+          cd Project
+          npm ci
+
+      - name: Verify frontend production build
+        run: |
+          cd Project
+          npm run build
+
+      - name: Start backend server
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PORT: 3000
+        run: |
+          cd backend
+          node -r ts-node/register src/index.ts > server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Wait for backend health check
+        run: |
+          for i in {1..20}; do
+            if curl -fsS http://localhost:3000/health; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend..."
+            sleep 2
+          done
+
+          echo "Backend did not become ready"
+          cat backend/server.log
+          exit 1
+
+      - name: Run backend API tests
+        run: |
+          chmod +x backend/tests/*.sh
+          backend/tests/user_registration_test.sh
+
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f backend/server.pid ]; then
+            kill $(cat backend/server.pid) || true
+          fi
