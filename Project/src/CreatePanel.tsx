@@ -1,0 +1,155 @@
+import { FormEvent, useState } from 'react'
+import { createEvent, createPlan, ApiEvent, ApiPlan } from './api'
+
+type Props = {
+    position: [number, number] | null
+    onEventCreated: (event: ApiEvent) => void
+    onPlanCreated: (plan: ApiPlan) => void
+    onCancel: () => void
+}
+
+export default function CreatePanel({ position, onEventCreated, onPlanCreated, onCancel }: Props) {
+    const [type, setType] = useState<'event' | 'plan'>('event')
+    const [name, setName] = useState('')
+    const [description, setDescription] = useState('')
+    const [eventTime, setEventTime] = useState('')
+    const [capacity, setCapacity] = useState('')
+    const [budget, setBudget] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    if (!position) return null
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault()
+        if (!name.trim()) return
+        setSaving(true)
+        setError('')
+        try {
+            if (type === 'event') {
+                if (!eventTime) throw new Error('Event time is required')
+                const event = await createEvent({
+                    name: name.trim(),
+                    description: description.trim() || undefined,
+                    lat: position[0],
+                    lng: position[1],
+                    event_time: new Date(eventTime).toISOString(),
+                    capacity: capacity ? parseInt(capacity) : undefined,
+                    budget: budget ? parseFloat(budget) : undefined,
+                })
+                onEventCreated(event)
+            } else {
+                const plan = await createPlan({
+                    name: name.trim(),
+                    description: description.trim() || undefined,
+                    lat: position[0],
+                    lng: position[1],
+                    budget: budget ? parseFloat(budget) : undefined,
+                })
+                onPlanCreated(plan)
+            }
+            setName('')
+            setDescription('')
+            setEventTime('')
+            setCapacity('')
+            setBudget('')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Something went wrong')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div className="create-panel">
+            <div className="create-panel__header">
+                <span className="create-panel__title">New marker</span>
+                <button className="create-panel__close" onClick={onCancel}>✕</button>
+            </div>
+
+            <div className="create-panel__type-toggle">
+                <button
+                    type="button"
+                    className={`create-panel__type-btn ${type === 'event' ? 'create-panel__type-btn--active-event' : ''}`}
+                    onClick={() => setType('event')}
+                >
+                    🗓 Event
+                </button>
+                <button
+                    type="button"
+                    className={`create-panel__type-btn ${type === 'plan' ? 'create-panel__type-btn--active-plan' : ''}`}
+                    onClick={() => setType('plan')}
+                >
+                    📋 Plan
+                </button>
+            </div>
+
+            <form className="create-panel__form" onSubmit={handleSubmit}>
+                <div className="create-panel__field">
+                    <label className="create-panel__label">Name *</label>
+                    <input
+                        className="create-panel__input"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={type === 'event' ? 'Morning run' : 'Weekend trip'}
+                        required
+                    />
+                </div>
+                <div className="create-panel__field">
+                    <label className="create-panel__label">Description</label>
+                    <textarea
+                        className="create-panel__input create-panel__textarea"
+                        rows={2}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                </div>
+                {type === 'event' && (
+                    <div className="create-panel__field">
+                        <label className="create-panel__label">Date & Time *</label>
+                        <input
+                            className="create-panel__input"
+                            type="datetime-local"
+                            value={eventTime}
+                            onChange={(e) => setEventTime(e.target.value)}
+                            required
+                        />
+                    </div>
+                )}
+                {type === 'event' && (
+                    <div className="create-panel__field">
+                        <label className="create-panel__label">Capacity</label>
+                        <input
+                            className="create-panel__input"
+                            type="number"
+                            min="1"
+                            value={capacity}
+                            onChange={(e) => setCapacity(e.target.value)}
+                            placeholder="Unlimited"
+                        />
+                    </div>
+                )}
+                <div className="create-panel__field">
+                    <label className="create-panel__label">Budget (€)</label>
+                    <input
+                        className="create-panel__input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={budget}
+                        onChange={(e) => setBudget(e.target.value)}
+                        placeholder="Optional"
+                    />
+                </div>
+                {error && <div className="create-panel__error">{error}</div>}
+                <button
+                    type="submit"
+                    className={`create-panel__submit create-panel__submit--${type}`}
+                    disabled={saving}
+                >
+                    {saving ? 'Creating…' : `Create ${type}`}
+                </button>
+            </form>
+        </div>
+    )
+}
