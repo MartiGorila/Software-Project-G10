@@ -4,8 +4,9 @@ import { createClient } from '@supabase/supabase-js'
 import authRouter from './routes/auth'
 import eventsRouter from './routes/events'
 import plansRouter from './routes/plans'
-import uploadRouter from './routes/upload'
 import usersRouter from './routes/users'
+import tagsRouter from './routes/tags'
+import uploadRouter from './routes/upload'
 
 export const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -24,8 +25,10 @@ const PORT = process.env.PORT ?? 3000
 app.use('/auth', authRouter)
 app.use('/events', eventsRouter)
 app.use('/plans', plansRouter)
-app.use('/upload', uploadRouter)
 app.use('/users', usersRouter)
+app.use('/tags', tagsRouter)
+app.use('/upload', uploadRouter)
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
