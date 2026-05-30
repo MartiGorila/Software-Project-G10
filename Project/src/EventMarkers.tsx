@@ -5,11 +5,12 @@ import { MarkerData, NewMarkerData } from './types'
 type EventMarkersProps = {
     markers: MarkerData[]
     subscribedIds: string[]
-    subscribersByEvent: Record<string, string[]>
+    subscribersByEvent: Record<string, { username: string; userId: string }[]>
     canSubscribe: boolean
     currentUserId: string | null
     onSubscribe: (markerId: string) => void
     onDeleteMarker: (markerId: string) => void
+    onViewUserProfile: (userId: string) => void
     clickPosition: [number, number] | null
     editing: boolean
     setEditing: Dispatch<SetStateAction<boolean>>
@@ -37,6 +38,7 @@ export default function EventMarkers({
     currentUserId,
     onSubscribe,
     onDeleteMarker,
+    onViewUserProfile,
     clickPosition,
     editing,
     setEditing,
@@ -49,7 +51,7 @@ export default function EventMarkers({
         <>
             {markers.map((marker) => {
                 const subscribed = subscribedIds.includes(marker.id)
-                const subscriberNames = subscribersByEvent[marker.id] ?? []
+                const subscribers = subscribersByEvent[marker.id] ?? []
                 const isCreator = marker.creatorId === currentUserId
                 return (
                     <Marker key={marker.id} position={marker.position}>
@@ -61,9 +63,25 @@ export default function EventMarkers({
                             {marker.description}
                             <br />
                             <small className="event-subscribers">
-                                {subscriberNames.length > 0
-                                    ? `Subscribed users: ${subscriberNames.join(', ')}`
-                                    : 'No users subscribed yet.'}
+                                {subscribers.length > 0 ? (
+                                    <>
+                                        Subscribed users:{' '}
+                                        {subscribers.map((subscriber, index) => (
+                                            <span key={`${subscriber.userId}-${index}`}>
+                                                <button
+                                                    type="button"
+                                                    className="subscriber-name-btn"
+                                                    onClick={() => onViewUserProfile(subscriber.userId)}
+                                                >
+                                                    {subscriber.username}
+                                                </button>
+                                                {index < subscribers.length - 1 ? ', ' : ''}
+                                            </span>
+                                        ))}
+                                    </>
+                                ) : (
+                                    'No users subscribed yet.'
+                                )}
                             </small>
                             <div style={{ marginTop: '8px', display: 'flex', gap: '4px' }}>
                                 <button

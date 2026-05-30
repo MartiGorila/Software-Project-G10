@@ -1,3 +1,5 @@
+import { AuthUser, OwnProfile, PublicProfile } from './types'
+
 const API_BASE = 'http://localhost:3000'
 
 export function getAuthToken(): string | null {
@@ -50,7 +52,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 // Auth
 
 export async function register(username: string, email: string, password: string) {
-  const data = await apiRequest<{ user: any; token: string }>('/auth/register', {
+  const data = await apiRequest<{ user: AuthUser; token: string }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ username, email, password }),
   })
@@ -60,7 +62,7 @@ export async function register(username: string, email: string, password: string
 }
 
 export async function login(email: string, password: string) {
-  const data = await apiRequest<{ user: any; token: string }>('/auth/login', {
+  const data = await apiRequest<{ user: AuthUser; token: string }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   })
@@ -76,18 +78,18 @@ export function logout() {
 // Users
 
 export async function getCurrentUser() {
-  return apiRequest<any>('/users/me')
+  return apiRequest<OwnProfile>('/users/me')
 }
 
 export async function updateCurrentUser(data: { username?: string; avatar_url?: string | null }) {
-  return apiRequest<any>('/users/me', {
+  return apiRequest<OwnProfile>('/users/me', {
     method: 'PUT',
     body: JSON.stringify(data),
   })
 }
 
 export async function getPublicUser(userId: string) {
-  return apiRequest<any>(`/users/${userId}`)
+  return apiRequest<PublicProfile>(`/users/${userId}`)
 }
 
 export async function getFriends() {
