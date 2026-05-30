@@ -1,162 +1,118 @@
-import L from 'leaflet'
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { FormEvent, useEffect, useState } from 'react'
-import EventMarkers from './EventMarkers'
+import MapMarkers from './MapMarkers'
+import CreatePanel from './CreatePanel'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
 import {
-    createEvent,
-    deleteEvent,
     getAuthToken,
     getCurrentUser,
     getEvents,
+    getPlans,
     joinEvent,
     leaveEvent,
+    deleteEvent,
+    deletePlan,
     login,
     logout as apiLogout,
     register,
+    ApiEvent,
+    ApiPlan,
+    AuthUser,
 } from './api'
-import { ApiEvent, AuthUser, MarkerData, NewMarkerData, OwnProfile } from './types'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
 
-const parseHour = (hour: string) => {
-    const [h, m] = hour.split(':').map(Number)
-    return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : Infinity
-}
-
-const getBearing = (start: [number, number], end: [number, number]) => {
-    const [lat1, lon1] = start.map((value) => (value * Math.PI) / 180)
-    const [lat2, lon2] = end.map((value) => (value * Math.PI) / 180)
-    const dLon = lon2 - lon1
-    const y = Math.sin(dLon) * Math.cos(lat2)
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
-    return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360
-}
-
-const createArrowIcon = (rotation: number) =>
-    new L.DivIcon({
-        className: 'subscription-arrow-icon',
-        html: `<div style="transform: rotate(${rotation - 90}deg); transform-origin: center center; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;">➤</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-    })
-
-const formatEventHour = (eventTime: string) =>
-    new Date(eventTime).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    })
-
-const toMarkerData = (event: ApiEvent): MarkerData => ({
-    id: event.id,
-    position: [event.lat, event.lng],
-    name: event.name,
-    hour: formatEventHour(event.event_time),
-    description: event.description ?? '',
-    creatorId: event.creator_id,
-})
-
-const buildEventTime = (hour: string) => {
-    const date = new Date()
-    const [hours, minutes] = hour.split(':').map(Number)
-
-    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
-        date.setHours(hours, minutes, 0, 0)
-    }
-
-    return date.toISOString()
-}
-
 function App() {
-    const [apiEvents, setApiEvents] = useState<ApiEvent[]>([])
-    const [markers, setMarkers] = useState<MarkerData[]>([])
+    const [events, setEvents] = useState<ApiEvent[]>([])
+    const [plans, setPlans] = useState<ApiPlan[]>([])
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
+
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
-    const [editing, setEditing] = useState(false)
-    const [formData, setFormData] = useState({ name: '', hour: '', description: '' })
+
     const [showLoginForm, setShowLoginForm] = useState(false)
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
     const [loginForm, setLoginForm] = useState({ email: '', password: '' })
     const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '' })
     const [loginError, setLoginError] = useState('')
-    const [isLoading, setIsLoading] = useState(true)
+
     const [showOwnProfile, setShowOwnProfile] = useState(false)
     const [viewingUserId, setViewingUserId] = useState<string | null>(null)
 
-    const refreshEvents = async () => {
-        const events = await getEvents()
-        setApiEvents(events)
-        setMarkers(events.map(toMarkerData))
+    // ── Load data ─────────────────────────────────────────────────────────────
+
+    const refreshData = async () => {
+        const [eventsData, plansData] = await Promise.all([getEvents(), getPlans()])
+        setEvents(eventsData)
+        setPlans(plansData)
+
+        if (currentUser) {
+            const joined = new Set(
+                eventsData
+                    .filter((e) => e.event_participants?.some((p) => p.user_id === currentUser.id))
+                    .map((e) => e.id),
+            )
+            setJoinedEventIds(joined)
+        }
     }
 
     useEffect(() => {
-        const loadInitialData = async () => {
+        const init = async () => {
+            setIsLoading(true)
             try {
-                setIsLoading(true)
-                await refreshEvents()
+                const [eventsData, plansData] = await Promise.all([getEvents(), getPlans()])
+                setEvents(eventsData)
+                setPlans(plansData)
 
                 if (getAuthToken()) {
                     try {
                         const user = await getCurrentUser()
                         setCurrentUser(user)
+                        const joined = new Set(
+                            eventsData
+                                .filter((e) => e.event_participants?.some((p) => p.user_id === user.id))
+                                .map((e) => e.id),
+                        )
+                        setJoinedEventIds(joined)
                     } catch {
                         apiLogout()
                         setCurrentUser(null)
                     }
                 }
-            } catch (error) {
-                setLoginError(error instanceof Error ? error.message : 'Failed to load events.')
+            } catch (err) {
+                setLoginError(err instanceof Error ? err.message : 'Failed to load data')
             } finally {
                 setIsLoading(false)
             }
         }
-
-        loadInitialData()
+        init()
     }, [])
 
-    const handleSaveMarker = async (marker: NewMarkerData) => {
-        if (!currentUser) return
+    // ── Auth ──────────────────────────────────────────────────────────────────
 
-        try {
-            await createEvent({
-                name: marker.name,
-                description: marker.description,
-                lat: marker.position[0],
-                lng: marker.position[1],
-                event_time: buildEventTime(marker.hour),
-            })
-            await refreshEvents()
-            setClickPosition(null)
-            setEditing(false)
-            setFormData({ name: '', hour: '', description: '' })
-            setLoginError('')
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Failed to create event.')
-        }
-    }
-
-    const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault()
-
+    const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        setLoginError('')
         try {
             const data = await login(loginForm.email.trim(), loginForm.password)
             setCurrentUser(data.user)
             setShowLoginForm(false)
-            setLoginError('')
             setLoginForm({ email: '', password: '' })
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Login failed.')
+            await refreshData()
+        } catch (err) {
+            setLoginError(err instanceof Error ? err.message : 'Login failed.')
         }
     }
 
-    const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault()
-
+    const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        setLoginError('')
         try {
             const data = await register(
                 registerForm.username.trim(),
@@ -165,17 +121,17 @@ function App() {
             )
             setCurrentUser(data.user)
             setShowLoginForm(false)
-            setLoginError('')
             setRegisterForm({ username: '', email: '', password: '' })
             setAuthMode('login')
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Registration failed.')
+        } catch (err) {
+            setLoginError(err instanceof Error ? err.message : 'Registration failed.')
         }
     }
 
     const handleLogout = () => {
         apiLogout()
         setCurrentUser(null)
+        setJoinedEventIds(new Set())
         setShowLoginForm(false)
         setLoginError('')
         setShowOwnProfile(false)
@@ -183,158 +139,126 @@ function App() {
     }
 
     const handleToggleLogin = () => {
-        if (currentUser) {
-            handleLogout()
-            return
-        }
-        setShowLoginForm((visible) => !visible)
+        if (currentUser) { handleLogout(); return }
+        setShowLoginForm((v) => !v)
         setLoginError('')
     }
 
-    const handleSubscribe = async (markerId: string) => {
-        if (!currentUser) return
+    // ── Join / Leave ──────────────────────────────────────────────────────────
 
+    const handleJoin = async (eventId: string) => {
         try {
-            await joinEvent(markerId)
-            await refreshEvents()
-            setLoginError('')
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Failed to subscribe.')
+            await joinEvent(eventId)
+            setJoinedEventIds((prev) => new Set([...prev, eventId]))
+            const updated = await getEvents()
+            setEvents(updated)
+        } catch (err) {
+            console.error('Join failed:', err)
         }
     }
 
-    const handleDeleteMarker = async (markerId: string) => {
-        if (!currentUser) return
-        const marker = markers.find(m => m.id === markerId)
-        if (!marker || marker.creatorId !== currentUser.id) return
-
+    const handleLeave = async (eventId: string) => {
         try {
-            await deleteEvent(markerId)
-            await refreshEvents()
-            setLoginError('')
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Failed to delete event.')
+            await leaveEvent(eventId)
+            setJoinedEventIds((prev) => { const s = new Set(prev); s.delete(eventId); return s })
+            const updated = await getEvents()
+            setEvents(updated)
+        } catch (err) {
+            console.error('Leave failed:', err)
         }
     }
 
-    const handleUnsubscribe = async (markerId: string) => {
-        if (!currentUser) return
+    // ── Delete ────────────────────────────────────────────────────────────────
 
+    const handleDeleteEvent = async (eventId: string) => {
         try {
-            await leaveEvent(markerId)
-            await refreshEvents()
-            setLoginError('')
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Failed to unsubscribe.')
+            await deleteEvent(eventId)
+            setEvents((prev) => prev.filter((e) => e.id !== eventId))
+        } catch (err) {
+            console.error('Delete event failed:', err)
         }
     }
 
-    const handleProfileUpdated = async (profile: OwnProfile) => {
-        setCurrentUser(profile)
+    const handleDeletePlan = async (planId: string) => {
         try {
-            await refreshEvents()
-        } catch (error) {
-            setLoginError(error instanceof Error ? error.message : 'Failed to refresh events.')
+            await deletePlan(planId)
+            setPlans((prev) => prev.filter((p) => p.id !== planId))
+        } catch (err) {
+            console.error('Delete plan failed:', err)
         }
     }
 
-    const subscribedIds = currentUser
-        ? apiEvents
-            .filter((event) =>
-                event.event_participants?.some((participant) => participant.user_id === currentUser.id),
-            )
-            .map((event) => event.id)
-        : []
-    const subscribedMarkers = markers.filter((marker) => subscribedIds.includes(marker.id))
-    const orderedSubscribedMarkers = [...subscribedMarkers].sort(
-        (a, b) => parseHour(a.hour) - parseHour(b.hour),
-    )
-    const subscriptionPath = orderedSubscribedMarkers.map((marker) => marker.position)
-    const subscribersByEvent = apiEvents.reduce<Record<string, { username: string; userId: string }[]>>((map, event) => {
-        map[event.id] = event.event_participants
-            ?.filter((participant) => Boolean(participant.user_id))
-            .map((participant) => ({
-                userId: participant.user_id,
-                username: participant.user?.username ?? 'Unknown user',
-            })) ?? []
-        return map
-    }, {})
+    // ── Create ────────────────────────────────────────────────────────────────
+
+    const handleEventCreated = (event: ApiEvent) => {
+        setEvents((prev) => [...prev, event])
+        setClickPosition(null)
+    }
+
+    const handlePlanCreated = (plan: ApiPlan) => {
+        setPlans((prev) => [...prev, plan])
+        setClickPosition(null)
+    }
+
+    // ── Profile update ────────────────────────────────────────────────────────
+
+    const handleProfileUpdated = () => {
+        getCurrentUser().then(setCurrentUser).catch(console.error)
+    }
 
     return (
         <div className="map-shell">
-            <MapContainer className="leaflet-container" center={barcelonaCenter} zoom={14} style={{ height: '100vh', width: '100vw' }}>
+            <MapContainer
+                className="leaflet-container"
+                center={barcelonaCenter}
+                zoom={14}
+                style={{ height: '100vh', width: '100vw' }}
+            >
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
 
                 <Marker position={barcelonaCenter}>
-                    <Popup>
-                        Barcelona center: Plaça de Catalunya.
-                    </Popup>
+                    <Popup>Barcelona center: Plaça de Catalunya.</Popup>
                 </Marker>
 
-                <EventMarkers
-                    markers={markers}
-                    subscribedIds={subscribedIds}
-                    subscribersByEvent={subscribersByEvent}
-                    canSubscribe={!!currentUser}
+                <MapMarkers
+                    events={events}
+                    plans={plans}
                     currentUserId={currentUser?.id ?? null}
-                    onSubscribe={handleSubscribe}
-                    onDeleteMarker={handleDeleteMarker}
+                    isLoggedIn={!!currentUser}
+                    joinedEventIds={joinedEventIds}
+                    onJoin={handleJoin}
+                    onLeave={handleLeave}
+                    onDeleteEvent={handleDeleteEvent}
+                    onDeletePlan={handleDeletePlan}
                     onViewUserProfile={setViewingUserId}
+                    onMapClick={setClickPosition}
                     clickPosition={clickPosition}
-                    editing={editing}
-                    setEditing={setEditing}
-                    formData={formData}
-                    setFormData={setFormData}
-                    onClickLocation={setClickPosition}
-                    onSaveMarker={handleSaveMarker}
+                    onCloseClick={() => setClickPosition(null)}
                 />
-
-                {orderedSubscribedMarkers.length > 1 && (
-                    <>
-                        <Polyline
-                            positions={subscriptionPath}
-                            pathOptions={{ color: '#1d4ed8', weight: 4, opacity: 0.8, dashArray: '10,8' }}
-                        />
-                        {orderedSubscribedMarkers.slice(0, -1).map((marker, index) => {
-                            const next = orderedSubscribedMarkers[index + 1]
-                            const midpoint: [number, number] = [
-                                (marker.position[0] + next.position[0]) / 2,
-                                (marker.position[1] + next.position[1]) / 2,
-                            ]
-                            return (
-                                <Marker
-                                    key={`${marker.id}-arrow`}
-                                    position={midpoint}
-                                    icon={createArrowIcon(getBearing(marker.position, next.position))}
-                                    interactive={false}
-                                />
-                            )
-                        })}
-                    </>
-                )}
             </MapContainer>
 
+            {/* Sidebar */}
             <div className="sidebar-overlay">
+                {/* Login panel */}
                 <div className="login-panel">
                     <button type="button" className="login-button" onClick={handleToggleLogin}>
-                        {currentUser ? 'Logout' : 'Login'}
+                        {currentUser ? 'Logout' : 'Login / Register'}
                     </button>
-                    {currentUser ? (
-                        <div className="login-info">Logged in as <strong>{currentUser.username}</strong></div>
-                    ) : null}
-                    {!currentUser && showLoginForm ? (
+                    {currentUser && (
+                        <div className="login-info">
+                            Logged in as <strong>{currentUser.username}</strong>
+                        </div>
+                    )}
+                    {!currentUser && showLoginForm && (
                         <div>
                             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
                                 <button
                                     type="button"
                                     className="popup-button"
-                                    onClick={() => {
-                                        setAuthMode('login')
-                                        setLoginError('')
-                                    }}
+                                    onClick={() => { setAuthMode('login'); setLoginError('') }}
                                     disabled={authMode === 'login'}
                                 >
                                     Login
@@ -342,15 +266,13 @@ function App() {
                                 <button
                                     type="button"
                                     className="popup-button"
-                                    onClick={() => {
-                                        setAuthMode('register')
-                                        setLoginError('')
-                                    }}
+                                    onClick={() => { setAuthMode('register'); setLoginError('') }}
                                     disabled={authMode === 'register'}
                                 >
                                     Register
                                 </button>
                             </div>
+
                             {authMode === 'login' ? (
                                 <form className="login-form" onSubmit={handleLogin}>
                                     <div className="login-field">
@@ -410,18 +332,69 @@ function App() {
                                 </form>
                             )}
                         </div>
-                    ) : null}
-                    {isLoading ? <div className="login-info">Loading events...</div> : null}
-                    {loginError ? <div className="login-error">{loginError}</div> : null}
+                    )}
+                    {isLoading && <div className="login-info">Loading map data…</div>}
+                    {loginError && <div className="login-error">{loginError}</div>}
                 </div>
 
+                {/* Legend */}
+                <div className="map-legend">
+                    <div className="map-legend__item">
+                        <span className="map-legend__dot map-legend__dot--event" />
+                        <span>Event</span>
+                    </div>
+                    <div className="map-legend__item">
+                        <span className="map-legend__dot map-legend__dot--plan" />
+                        <span>Plan</span>
+                    </div>
+                    <div className="map-legend__item">
+                        <span className="map-legend__dot map-legend__dot--own" />
+                        <span>Yours</span>
+                    </div>
+                </div>
+
+                {/* Profile button */}
+                {currentUser && (
+                    <button
+                        type="button"
+                        className="sidebar-profile-btn"
+                        onClick={() => setShowOwnProfile(true)}
+                    >
+                        <span className="sidebar-profile-avatar">
+                            {currentUser.avatar_url ? (
+                                <img src={currentUser.avatar_url} alt={currentUser.username} />
+                            ) : (
+                                currentUser.username.slice(0, 2).toUpperCase()
+                            )}
+                        </span>
+                        <span className="sidebar-profile-label">
+                            <strong>{currentUser.username}</strong>
+                            <small>View &amp; edit profile</small>
+                        </span>
+                        <span className="sidebar-profile-arrow">→</span>
+                    </button>
+                )}
+
+                {/* Subscription panel */}
                 <SubscriptionPanel
-                    subscribedMarkers={orderedSubscribedMarkers}
-                    onRemoveSubscription={handleUnsubscribe}
+                    subscribedMarkers={[]}
+                    onRemoveSubscription={() => {}}
                     currentUser={currentUser}
                     onOpenProfile={() => setShowOwnProfile(true)}
                 />
+
+                {/* Create panel */}
+                {clickPosition && currentUser && (
+                    <CreatePanel
+                        position={clickPosition}
+                        onEventCreated={handleEventCreated}
+                        onPlanCreated={handlePlanCreated}
+                        onCancel={() => setClickPosition(null)}
+                    />
+                )}
             </div>
+
+            {/* Profile modals */}
             {showOwnProfile && currentUser && (
                 <ProfileModal
                     onClose={() => setShowOwnProfile(false)}

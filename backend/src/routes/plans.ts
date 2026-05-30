@@ -13,16 +13,22 @@ const PlanSchema = z.object({
   budget: z.number().optional(),
 })
 
-// GET /plans — list all plans
+// GET /plans — list all plans with tags
 router.get('/', async (_req, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
     .select(`
-        *,
-        creator:users!plans_creator_id_fkey (
-            id,
-            username
+      *,
+      creator:users!plans_creator_id_fkey (
+        id,
+        username
+      ),
+      plan_tags (
+        tag:tags (
+          id,
+          name
         )
+      )
     `)
     .order('created_at', { ascending: false })
 
@@ -30,19 +36,32 @@ router.get('/', async (_req, res: Response) => {
     res.status(500).json({ error: error.message })
     return
   }
-  res.json(data)
+
+  const normalized = (data ?? []).map((p: Record<string, unknown>) => ({
+    ...p,
+    tags: ((p.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
+    plan_tags: undefined,
+  }))
+
+  res.json(normalized)
 })
 
-// GET /plans/:id — single plan
+// GET /plans/:id — single plan with tags
 router.get('/:id', async (req, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
     .select(`
-        *,
-        creator:users!plans_creator_id_fkey (
-            id,
-            username
+      *,
+      creator:users!plans_creator_id_fkey (
+        id,
+        username
+      ),
+      plan_tags (
+        tag:tags (
+          id,
+          name
         )
+      )
     `)
     .eq('id', req.params.id)
     .single()
@@ -51,7 +70,14 @@ router.get('/:id', async (req, res: Response) => {
     res.status(404).json({ error: 'Plan not found.' })
     return
   }
-  res.json(data)
+
+  const normalized = {
+    ...data,
+    tags: ((data.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
+    plan_tags: undefined,
+  }
+
+  res.json(normalized)
 })
 
 // POST /plans — create plan (auth required)
@@ -72,7 +98,16 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: error.message })
     return
   }
-  res.status(201).json(data)
+
+  // Attach tags if provided
+  const tagIds: number[] = req.body.tag_ids ?? []
+  if (tagIds.length > 0) {
+    await supabase
+      .from('plan_tags')
+      .insert(tagIds.map((tag_id) => ({ plan_id: data.id, tag_id })))
+  }
+
+  res.status(201).json({ ...data, tags: [] })
 })
 
 // PUT /plans/:id — edit plan (creator only)

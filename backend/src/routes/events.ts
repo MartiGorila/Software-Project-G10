@@ -15,7 +15,7 @@ const EventSchema = z.object({
   capacity: z.number().int().optional(),
 })
 
-// GET /events — list all events
+// GET /events — list all events with tags
 router.get('/', async (_req, res: Response) => {
   const { data, error } = await supabase
     .from('events')
@@ -32,6 +32,12 @@ router.get('/', async (_req, res: Response) => {
           id,
           username
         )
+      ),
+      event_tags (
+        tag:tags (
+          id,
+          name
+        )
       )
     `)
     .order('event_time', { ascending: true })
@@ -40,10 +46,18 @@ router.get('/', async (_req, res: Response) => {
     res.status(500).json({ error: error.message })
     return
   }
-  res.json(data)
+
+  // Flatten tags: event_tags: [{ tag: { id, name } }] -> tags: [{ id, name }]
+  const normalized = (data ?? []).map((e: Record<string, unknown>) => ({
+    ...e,
+    tags: ((e.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
+    event_tags: undefined,
+  }))
+
+  res.json(normalized)
 })
 
-// GET /events/:id — single event with participants
+// GET /events/:id — single event with participants and tags
 router.get('/:id', async (req, res: Response) => {
   const { data, error } = await supabase
     .from('events')
@@ -60,6 +74,12 @@ router.get('/:id', async (req, res: Response) => {
           id,
           username
         )
+      ),
+      event_tags (
+        tag:tags (
+          id,
+          name
+        )
       )
     `)
     .eq('id', req.params.id)
@@ -70,7 +90,13 @@ router.get('/:id', async (req, res: Response) => {
     return
   }
 
-  res.json(data)
+  const normalized = {
+    ...data,
+    tags: ((data.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
+    event_tags: undefined,
+  }
+
+  res.json(normalized)
 })
 
 // POST /events — create event (auth required)
@@ -91,7 +117,16 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: error.message })
     return
   }
-  res.status(201).json(data)
+
+  // Attach tags if provided
+  const tagIds: number[] = req.body.tag_ids ?? []
+  if (tagIds.length > 0) {
+    await supabase
+      .from('event_tags')
+      .insert(tagIds.map((tag_id) => ({ event_id: data.id, tag_id })))
+  }
+
+  res.status(201).json({ ...data, tags: [] })
 })
 
 // PUT /events/:id — edit event (creator only)
@@ -134,7 +169,6 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
 
 // POST /events/:id/join — join event
 router.post('/:id/join', requireAuth, async (req: AuthRequest, res: Response) => {
-  // Check capacity first
   const { data: event } = await supabase
     .from('events')
     .select('capacity')

@@ -673,3 +673,151 @@
 .profile-modal--public .profile-header-band {
     height: 56px;
 }
+
+/* ── Legend ───────────────────────────────────────────────────────────────── */
+
+.map-legend {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    font-size: 0.82rem;
+    color: #374151;
+    font-weight: 500;
+}
+.map-legend__item { display: flex; align-items: center; gap: 0.4rem; }
+.map-legend__dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.map-legend__dot--event { background: #2563eb; }
+.map-legend__dot--plan  { background: #16a34a; }
+.map-legend__dot--own   { background: #f59e0b; border: 2px solid #b45309; }
+
+/* ── Loading / error status ───────────────────────────────────────────────── */
+
+.map-status {
+    padding: 0.65rem 0.9rem;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.map-status--error { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+/* ── Custom map markers ───────────────────────────────────────────────────── */
+
+.map-marker {
+    width: 36px;
+    height: 44px;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+}
+.map-marker::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 36px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    transform-origin: center center;
+}
+.map-marker--event::before { background: #2563eb; }
+.map-marker--plan::before  { background: #16a34a; }
+.map-marker--own::before   { background: #f59e0b; }
+.map-marker svg {
+    position: absolute;
+    top: 4px; left: 4px;
+    width: 20px; height: 20px;
+    z-index: 1;
+}
+.map-marker__dot {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Marker popup ─────────────────────────────────────────────────────────── */
+
+.marker-popup { min-width: 200px; max-width: 260px; font-family: inherit; }
+.marker-popup__badge {
+    display: inline-block;
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 0.15rem 0.5rem; border-radius: 999px; margin-bottom: 0.5rem;
+}
+.marker-popup__badge--event { background: #dbeafe; color: #1d4ed8; }
+.marker-popup__badge--plan  { background: #dcfce7; color: #15803d; }
+.marker-popup__title { font-size: 1rem; font-weight: 700; color: #0f172a; margin-bottom: 0.5rem; line-height: 1.3; }
+.marker-popup__meta { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.65rem; font-size: 0.82rem; color: #475569; }
+.marker-popup__desc { font-size: 0.85rem; color: #64748b; line-height: 1.4; margin-bottom: 0.65rem; border-top: 1px solid #f1f5f9; padding-top: 0.5rem; }
+.marker-popup__actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.marker-popup__btn {
+    flex: 1; border: none; border-radius: 0.5rem;
+    padding: 0.55rem 0.75rem; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; background: #2563eb; color: white; transition: background 0.15s;
+}
+.marker-popup__btn:hover { background: #1d4ed8; }
+.marker-popup__btn:disabled { background: #94a3b8; cursor: not-allowed; }
+.marker-popup__btn--secondary { background: #f1f5f9; color: #475569; }
+.marker-popup__btn--secondary:hover { background: #e2e8f0; }
+.marker-popup__btn--danger { background: #dc2626; }
+.marker-popup__btn--danger:hover { background: #b91c1c; }
+.marker-popup__hint { font-size: 0.8rem; color: #94a3b8; font-style: italic; }
+
+/* ── Create panel ─────────────────────────────────────────────────────────── */
+
+.create-panel {
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+}
+.create-panel__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1rem; border-bottom: 1px solid #f1f5f9;
+}
+.create-panel__title { font-weight: 700; font-size: 0.95rem; color: #0f172a; }
+.create-panel__close { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1rem; padding: 0; }
+.create-panel__close:hover { color: #475569; }
+.create-panel__type-toggle { display: flex; padding: 0.65rem 1rem; border-bottom: 1px solid #f1f5f9; }
+.create-panel__type-btn {
+    flex: 1; border: 1px solid #e2e8f0; background: #f8fafc;
+    color: #64748b; padding: 0.45rem 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.create-panel__type-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+.create-panel__type-btn:last-child  { border-radius: 0 0.5rem 0.5rem 0; border-left: none; }
+.create-panel__type-btn--active-event { background: #2563eb; color: white; border-color: #2563eb; }
+.create-panel__type-btn--active-plan  { background: #16a34a; color: white; border-color: #16a34a; }
+.create-panel__form { display: flex; flex-direction: column; gap: 0.65rem; padding: 0.85rem 1rem 1rem; }
+.create-panel__field { display: flex; flex-direction: column; gap: 0.25rem; }
+.create-panel__label { font-size: 0.82rem; font-weight: 600; color: #374151; }
+.create-panel__input {
+    border: 1px solid #cbd5e1; border-radius: 0.5rem;
+    padding: 0.45rem 0.6rem; font-size: 0.88rem;
+    width: 100%; box-sizing: border-box; font-family: inherit;
+}
+.create-panel__input:focus { outline: none; border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.create-panel__textarea { resize: vertical; }
+.create-panel__error {
+    font-size: 0.82rem; color: #b91c1c; background: #fef2f2;
+    border: 1px solid #fecaca; border-radius: 0.5rem; padding: 0.4rem 0.6rem;
+}
+.create-panel__submit {
+    border: none; border-radius: 0.6rem; padding: 0.65rem;
+    font-weight: 700; font-size: 0.9rem; cursor: pointer; color: white; margin-top: 0.25rem;
+}
+.create-panel__submit--event { background: #2563eb; }
+.create-panel__submit--event:hover { background: #1d4ed8; }
+.create-panel__submit--plan  { background: #16a34a; }
+.create-panel__submit--plan:hover  { background: #15803d; }
+.create-panel__submit:disabled { background: #94a3b8; cursor: not-allowed; }

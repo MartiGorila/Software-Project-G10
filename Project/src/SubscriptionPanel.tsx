@@ -1,4 +1,5 @@
-import { AuthUser, MarkerData } from './types'
+import { MarkerData } from './types'
+import { AuthUser } from './api'
 
 type SubscriptionPanelProps = {
     subscribedMarkers: MarkerData[]
@@ -7,34 +8,13 @@ type SubscriptionPanelProps = {
     onOpenProfile: () => void
 }
 
-export default function SubscriptionPanel({
-    subscribedMarkers,
-    currentUser,
-    onRemoveSubscription,
-    onOpenProfile,
-}: SubscriptionPanelProps) {
+export default function SubscriptionPanel({ subscribedMarkers, currentUser, onRemoveSubscription }: SubscriptionPanelProps) {
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
                 <h2>Subscribed events</h2>
                 <p className="sidebar-note">Saved markers you subscribed to appear here.</p>
             </div>
-            {currentUser && (
-                <button type="button" className="sidebar-profile-btn" onClick={onOpenProfile}>
-                    <span className="sidebar-profile-avatar">
-                        {currentUser.avatar_url ? (
-                            <img src={currentUser.avatar_url} alt={currentUser.username} />
-                        ) : (
-                            currentUser.username.slice(0, 2).toUpperCase()
-                        )}
-                    </span>
-                    <span className="sidebar-profile-label">
-                        <strong>{currentUser.username}</strong>
-                        <small>View &amp; edit profile</small>
-                    </span>
-                    <span className="sidebar-profile-arrow">&gt;</span>
-                </button>
-            )}
             {!currentUser ? (
                 <div className="sidebar-empty">Log in to see your subscriptions.</div>
             ) : subscribedMarkers.length === 0 ? (

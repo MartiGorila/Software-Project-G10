@@ -1,227 +1,300 @@
-import { AuthUser, OwnProfile, PublicProfile } from './types'
+// ── Base ──────────────────────────────────────────────────────────────────────
 
-const API_BASE = 'http://localhost:3000'
+export const API_BASE = 'http://localhost:3000'
+
+const TOKEN_KEY = 'authToken'
 
 export function getAuthToken(): string | null {
-  return localStorage.getItem('token')
+    return sessionStorage.getItem(TOKEN_KEY)
 }
 
-export function setAuthToken(token: string | null) {
-  if (token) {
-    localStorage.setItem('token', token)
-  } else {
-    localStorage.removeItem('token')
-  }
+function setAuthToken(token: string): void {
+    sessionStorage.setItem(TOKEN_KEY, token)
 }
 
-export function getAuthHeader(): HeadersInit {
-  const token = getAuthToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
+function clearAuthToken(): void {
+    sessionStorage.removeItem(TOKEN_KEY)
 }
 
-async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeader(),
-      ...options.headers,
-    },
-  })
-
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
-
-    try {
-      const errorData = await response.json()
-      message = errorData.error || errorData.message || message
-    } catch {
-      // ignore non-JSON errors
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const token = getAuthToken()
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> ?? {}),
     }
+    if (token) headers['Authorization'] = `Bearer ${token}`
 
-    throw new Error(message)
-  }
-
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json()
+    const r = await fetch(`${API_BASE}${path}`, { ...options, headers })
+    if (r.status === 204) return undefined as T
+    const data = await r.json()
+    if (!r.ok) throw new Error(data.error ?? `Request failed: ${path}`)
+    return data as T
 }
 
-// Auth
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-export async function register(username: string, email: string, password: string) {
-  const data = await apiRequest<{ user: AuthUser; token: string }>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ username, email, password }),
-  })
-
-  setAuthToken(data.token)
-  return data
+export type Tag = {
+    id: number
+    name: string
 }
 
-export async function login(email: string, password: string) {
-  const data = await apiRequest<{ user: AuthUser; token: string }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  })
-
-  setAuthToken(data.token)
-  return data
+export type AuthUser = {
+    id: string
+    username: string
+    email: string
+    avatar_url: string | null
+    created_at: string
 }
 
-export function logout() {
-  setAuthToken(null)
+export type ApiEvent = {
+    id: string
+    creator_id: string
+    name: string
+    description: string | null
+    lat: number
+    lng: number
+    event_time: string
+    budget: number | null
+    capacity: number | null
+    created_at: string
+    creator: { id: string; username: string }
+    event_participants?: {
+        user_id: string
+        joined_at: string
+        user?: { id: string; username: string }
+    }[]
+    tags?: Tag[]
 }
 
-// Users
-
-export async function getCurrentUser() {
-  return apiRequest<OwnProfile>('/users/me')
+export type ApiPlan = {
+    id: string
+    creator_id: string
+    name: string
+    description: string | null
+    lat: number
+    lng: number
+    budget: number | null
+    created_at: string
+    creator: { id: string; username: string }
+    tags?: Tag[]
 }
 
-export async function updateCurrentUser(data: { username?: string; avatar_url?: string | null }) {
-  return apiRequest<OwnProfile>('/users/me', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  })
+export type OwnProfile = AuthUser
+
+export type PublicProfile = {
+    id: string
+    username: string
+    avatar_url: string | null
+    created_at: string
 }
 
-export async function uploadAvatar(file: File) {
-  const body = new FormData()
-  body.append('avatar', file)
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
-  const response = await fetch(`${API_BASE}/upload/avatar`, {
-    method: 'POST',
-    headers: {
-      ...getAuthHeader(),
-    },
-    body,
-  })
-
-  if (!response.ok) {
-    let message = `Avatar upload failed with status ${response.status}`
-
-    try {
-      const errorData = await response.json()
-      message = errorData.error || errorData.message || message
-    } catch {
-      // ignore non-JSON errors
-    }
-
-    throw new Error(message)
-  }
-
-  return response.json() as Promise<OwnProfile>
+export async function login(
+    email: string,
+    password: string,
+): Promise<{ user: AuthUser; token: string }> {
+    const data = await apiFetch<{ user: AuthUser; token: string }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    })
+    setAuthToken(data.token)
+    return data
 }
 
-export async function getPublicUser(userId: string) {
-  return apiRequest<PublicProfile>(`/users/${userId}`)
+export async function register(
+    username: string,
+    email: string,
+    password: string,
+): Promise<{ user: AuthUser; token: string }> {
+    const data = await apiFetch<{ user: AuthUser; token: string }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ username, email, password }),
+    })
+    setAuthToken(data.token)
+    return data
 }
 
-export async function getFriends() {
-  return apiRequest<any[]>('/users/me/friends')
+export function logout(): void {
+    clearAuthToken()
 }
 
-export async function addFriend(friendId: string) {
-  return apiRequest<{ ok: true }>(`/users/me/friends/${friendId}`, {
-    method: 'POST',
-  })
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+export function getCurrentUser(): Promise<AuthUser> {
+    return apiFetch<AuthUser>('/users/me')
 }
 
-export async function removeFriend(friendId: string) {
-  return apiRequest<void>(`/users/me/friends/${friendId}`, {
-    method: 'DELETE',
-  })
+export function updateCurrentUser(body: {
+    username?: string
+    avatar_url?: string
+}): Promise<AuthUser> {
+    return apiFetch<AuthUser>('/users/me', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+    })
 }
 
-// Events
-
-export type CreateEventPayload = {
-  name: string
-  description?: string
-  lat: number
-  lng: number
-  event_time: string
-  budget?: number
-  capacity?: number
+export function getPublicUser(userId: string): Promise<PublicProfile> {
+    return apiFetch<PublicProfile>(`/users/${userId}`)
 }
 
-export async function getEvents() {
-  return apiRequest<any[]>('/events')
+export async function uploadAvatar(file: File): Promise<AuthUser> {
+    // Get current user id first
+    const me = await getCurrentUser()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const env = (import.meta as any).env ?? {}
+    const supabaseUrl = env.VITE_SUPABASE_URL as string
+    const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string
+
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `avatars/${me.id}.${ext}`
+
+    const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+    if (error) throw new Error(error.message)
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    const publicUrl = data.publicUrl
+
+    // Save the URL back to the user record and return updated profile
+    return updateCurrentUser({ avatar_url: publicUrl })
 }
 
-export async function getEvent(eventId: string) {
-  return apiRequest<any>(`/events/${eventId}`)
+// ── Tags ──────────────────────────────────────────────────────────────────────
+
+export function getTags(): Promise<Tag[]> {
+    return apiFetch<Tag[]>('/tags')
 }
 
-export async function createEvent(data: CreateEventPayload) {
-  return apiRequest<any>('/events', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+export function createTag(name: string): Promise<Tag> {
+    return apiFetch<Tag>('/tags', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+    })
 }
 
-export async function updateEvent(eventId: string, data: Partial<CreateEventPayload>) {
-  return apiRequest<any>(`/events/${eventId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  })
+export function addTagToEvent(eventId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/events/${eventId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tag_id: tagId }),
+    })
 }
 
-export async function deleteEvent(eventId: string) {
-  return apiRequest<void>(`/events/${eventId}`, {
-    method: 'DELETE',
-  })
+export function removeTagFromEvent(eventId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/events/${eventId}/tags/${tagId}`, { method: 'DELETE' })
 }
 
-export async function joinEvent(eventId: string) {
-  return apiRequest<{ ok: true }>(`/events/${eventId}/join`, {
-    method: 'POST',
-  })
+export function addTagToPlan(planId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/plans/${planId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tag_id: tagId }),
+    })
 }
 
-export async function leaveEvent(eventId: string) {
-  return apiRequest<void>(`/events/${eventId}/join`, {
-    method: 'DELETE',
-  })
+export function removeTagFromPlan(planId: string, tagId: number): Promise<void> {
+    return apiFetch<void>(`/tags/plans/${planId}/tags/${tagId}`, { method: 'DELETE' })
 }
 
-// Plans
+// ── Events ────────────────────────────────────────────────────────────────────
 
-export type CreatePlanPayload = {
-  name: string
-  description?: string
-  lat: number
-  lng: number
-  budget?: number
+export function getEvents(): Promise<ApiEvent[]> {
+    return apiFetch<ApiEvent[]>('/events')
 }
 
-export async function getPlans() {
-  return apiRequest<any[]>('/plans')
+export function getEvent(id: string): Promise<ApiEvent> {
+    return apiFetch<ApiEvent>(`/events/${id}`)
 }
 
-export async function getPlan(planId: string) {
-  return apiRequest<any>(`/plans/${planId}`)
+export function createEvent(body: {
+    name: string
+    description?: string
+    lat: number
+    lng: number
+    event_time: string
+    budget?: number
+    capacity?: number
+    tag_ids?: number[]
+}): Promise<ApiEvent> {
+    return apiFetch<ApiEvent>('/events', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    })
 }
 
-export async function createPlan(data: CreatePlanPayload) {
-  return apiRequest<any>('/plans', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+export function updateEvent(
+    id: string,
+    body: Partial<{
+        name: string
+        description: string
+        lat: number
+        lng: number
+        event_time: string
+        budget: number
+        capacity: number
+    }>,
+): Promise<ApiEvent> {
+    return apiFetch<ApiEvent>(`/events/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+    })
 }
 
-export async function updatePlan(planId: string, data: Partial<CreatePlanPayload>) {
-  return apiRequest<any>(`/plans/${planId}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  })
+export function deleteEvent(id: string): Promise<void> {
+    return apiFetch<void>(`/events/${id}`, { method: 'DELETE' })
 }
 
-export async function deletePlan(planId: string) {
-  return apiRequest<void>(`/plans/${planId}`, {
-    method: 'DELETE',
-  })
+export function joinEvent(id: string): Promise<void> {
+    return apiFetch<void>(`/events/${id}/join`, { method: 'POST' })
+}
+
+export function leaveEvent(id: string): Promise<void> {
+    return apiFetch<void>(`/events/${id}/join`, { method: 'DELETE' })
+}
+
+// ── Plans ─────────────────────────────────────────────────────────────────────
+
+export function getPlans(): Promise<ApiPlan[]> {
+    return apiFetch<ApiPlan[]>('/plans')
+}
+
+export function getPlan(id: string): Promise<ApiPlan> {
+    return apiFetch<ApiPlan>(`/plans/${id}`)
+}
+
+export function createPlan(body: {
+    name: string
+    description?: string
+    lat: number
+    lng: number
+    budget?: number
+    tag_ids?: number[]
+}): Promise<ApiPlan> {
+    return apiFetch<ApiPlan>('/plans', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    })
+}
+
+export function updatePlan(
+    id: string,
+    body: Partial<{
+        name: string
+        description: string
+        lat: number
+        lng: number
+        budget: number
+    }>,
+): Promise<ApiPlan> {
+    return apiFetch<ApiPlan>(`/plans/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+    })
+}
+
+export function deletePlan(id: string): Promise<void> {
+    return apiFetch<void>(`/plans/${id}`, { method: 'DELETE' })
 }
