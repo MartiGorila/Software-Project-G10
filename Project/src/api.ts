@@ -88,6 +88,34 @@ export async function updateCurrentUser(data: { username?: string; avatar_url?: 
   })
 }
 
+export async function uploadAvatar(file: File) {
+  const body = new FormData()
+  body.append('avatar', file)
+
+  const response = await fetch(`${API_BASE}/upload/avatar`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+    },
+    body,
+  })
+
+  if (!response.ok) {
+    let message = `Avatar upload failed with status ${response.status}`
+
+    try {
+      const errorData = await response.json()
+      message = errorData.error || errorData.message || message
+    } catch {
+      // ignore non-JSON errors
+    }
+
+    throw new Error(message)
+  }
+
+  return response.json() as Promise<OwnProfile>
+}
+
 export async function getPublicUser(userId: string) {
   return apiRequest<PublicProfile>(`/users/${userId}`)
 }
