@@ -3,7 +3,7 @@ set -e
 
 echo "SETUP: preparing test data"
 
-TIMESTAMP=$(date +%s)
+TIMESTAMP="$(date +%s)-$$"
 USERNAME="ci_user_$TIMESTAMP"
 EMAIL="ci_user_$TIMESTAMP@example.com"
 PASSWORD="test123"
