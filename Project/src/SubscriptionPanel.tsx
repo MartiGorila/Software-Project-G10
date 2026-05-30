@@ -1,4 +1,5 @@
-import { AuthUser, MarkerData } from './api'
+import { MarkerData } from './types'
+import { AuthUser } from './api'
 
 type SubscriptionPanelProps = {
     subscribedMarkers: MarkerData[]
@@ -7,7 +8,7 @@ type SubscriptionPanelProps = {
     onOpenProfile: () => void
 }
 
-export default function SubscriptionPanel({ subscribedMarkers, currentUser, onRemoveSubscription, onOpenProfile }: SubscriptionPanelProps) {
+export default function SubscriptionPanel({ subscribedMarkers, currentUser, onRemoveSubscription }: SubscriptionPanelProps) {
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
