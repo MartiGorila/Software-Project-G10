@@ -37,6 +37,23 @@ function matchesTags(itemTags: Tag[] | undefined, selectedIds: Set<number>): boo
     return [...selectedIds].every((id) => ids.includes(id))
 }
 
+function eventToMarkerData(event: ApiEvent) {
+    return {
+        id: event.id,
+        position: [event.lat, event.lng] as [number, number],
+        name: event.name,
+        hour: new Date(event.event_time).toLocaleString('en-GB', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+        }),
+        description: event.description ?? '',
+        creatorId: event.creator_id,
+    }
+}
+
 function App() {
     const [events, setEvents] = useState<ApiEvent[]>([])
     const [plans, setPlans] = useState<ApiPlan[]>([])
@@ -124,6 +141,9 @@ function App() {
     const filteredPlans = (filterType === 'events' ? [] : plans).filter((p) =>
         matchesTags(p.tags, selectedTagIds),
     )
+    const subscribedMarkers = events
+        .filter((event) => joinedEventIds.has(event.id))
+        .map(eventToMarkerData)
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -215,18 +235,17 @@ function App() {
 
     // ── Create ────────────────────────────────────────────────────────────────
 
-    const handleEventCreated = async (event: ApiEvent) => {
-        setEvents((prev) => [...prev, event])
+    const handleEventCreated = async (_event: ApiEvent) => {
         setClickPosition(null)
-        // Refresh tags in case new ones were created
-        const tags = await getTags()
+        const [updatedEvents, tags] = await Promise.all([getEvents(), getTags()])
+        setEvents(updatedEvents)
         setAllTags(tags)
     }
 
-    const handlePlanCreated = async (plan: ApiPlan) => {
-        setPlans((prev) => [...prev, plan])
+    const handlePlanCreated = async (_plan: ApiPlan) => {
         setClickPosition(null)
-        const tags = await getTags()
+        const [updatedPlans, tags] = await Promise.all([getPlans(), getTags()])
+        setPlans(updatedPlans)
         setAllTags(tags)
     }
 
@@ -402,8 +421,8 @@ function App() {
 
                 {/* Subscription panel */}
                 <SubscriptionPanel
-                    subscribedMarkers={[]}
-                    onRemoveSubscription={() => {}}
+                    subscribedMarkers={subscribedMarkers}
+                    onRemoveSubscription={handleLeave}
                     currentUser={currentUser}
                     onOpenProfile={() => setShowOwnProfile(true)}
                 />
