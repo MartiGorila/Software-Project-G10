@@ -300,10 +300,6 @@ function App() {
                     plans={filteredPlans}
                     currentUserId={currentUser?.id ?? null}
                     isLoggedIn={!!currentUser}
-                    joinedEventIds={joinedEventIds}
-                    onJoin={handleJoin}
-                    onLeave={handleLeave}
-                    onDeleteEvent={handleDeleteEvent}
                     onDeletePlan={handleDeletePlan}
                     onViewUserProfile={setViewingUserId}
                     onMapClick={setClickPosition}
@@ -319,10 +315,11 @@ function App() {
                         isLoggedIn={!!currentUser}
                         currentUserId={currentUser?.id ?? null}
                         joined={joinedEventIds.has(selectedEvent.id)}
-                        isFull={selectedEvent.capacity !== null && selectedEvent.capacity <= selectedEvent.event_participants?.length!}
+                        isFull={selectedEvent.capacity !== null && selectedEvent.capacity <= (selectedEvent.event_participants?.length ?? 0)}
                         onJoin={handleJoin}
                         onLeave={handleLeave}
                         onDeleteEvent={handleDeleteEvent}
+                        onViewUserProfile={setViewingUserId}
                     />
                 </div>
             )}

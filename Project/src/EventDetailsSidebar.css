@@ -76,3 +76,35 @@
   border-radius: 0.45rem;
   background: rgba(255, 255, 255, 0.06);
 }
+
+.event-details-profile-btn {
+  background: none;
+  border: none;
+  color: #bfdbfe;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-details-profile-btn:hover {
+  color: #dbeafe;
+}
+
+.event-details-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.event-details-tag {
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.22);
+  color: #bfdbfe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+}

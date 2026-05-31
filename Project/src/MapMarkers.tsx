@@ -101,10 +101,6 @@ type Props = {
     plans: ApiPlan[]
     currentUserId: string | null
     isLoggedIn: boolean
-    joinedEventIds: Set<string>
-    onJoin: (eventId: string) => void
-    onLeave: (eventId: string) => void
-    onDeleteEvent: (eventId: string) => void
     onDeletePlan: (planId: string) => void
     onViewUserProfile: (userId: string) => void
     onMapClick: (pos: [number, number]) => void
