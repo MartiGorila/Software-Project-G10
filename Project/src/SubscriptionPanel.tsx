@@ -20,11 +20,11 @@ export default function SubscriptionPanel({
                 <h2>Subscribed events</h2>
                 <p className="sidebar-note">Saved markers you subscribed to appear here.</p>
             </div>
-            {currentUser && (
+            {/* {currentUser && (
                 <button type="button" className="popup-button" onClick={onOpenProfile}>
                     View &amp; edit profile
                 </button>
-            )}
+            )} */}
             {!currentUser && <div className="sidebar-empty">Log in to see your subscriptions.</div>}
             {currentUser && subscribedMarkers.length === 0 && (
                 <div className="sidebar-empty">You have no subscriptions yet.</div>
