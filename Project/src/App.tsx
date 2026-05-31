@@ -315,7 +315,15 @@ function App() {
 
             {selectedEvent && (
                 <div className="event-details-overlay" onClick={handleCloseEventDetails}>
-                    <EventDetailsSidebar event={selectedEvent} onClose={handleCloseEventDetails} />
+                    <EventDetailsSidebar event={selectedEvent} onClose={handleCloseEventDetails}
+                        isLoggedIn={!!currentUser}
+                        currentUserId={currentUser?.id ?? null}
+                        joined={joinedEventIds.has(selectedEvent.id)}
+                        isFull={selectedEvent.capacity !== null && selectedEvent.capacity <= selectedEvent.event_participants?.length!}
+                        onJoin={handleJoin}
+                        onLeave={handleLeave}
+                        onDeleteEvent={handleDeleteEvent}
+                    />
                 </div>
             )}
 

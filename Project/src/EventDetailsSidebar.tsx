@@ -4,12 +4,26 @@ import { ApiEvent } from './api'
 export default function EventDetailsSidebar({
   event,
   onClose,
+  isLoggedIn,
+  currentUserId,
+  joined,
+  isFull,
+  onJoin,
+  onLeave,
+  onDeleteEvent
 }: {
   event: ApiEvent
   onClose: () => void
+  isLoggedIn: boolean
+  currentUserId: string | null
+  joined: boolean
+  isFull: boolean
+  onJoin: (eventId: string) => void
+  onLeave: (eventId: string) => void
+  onDeleteEvent: (eventId: string) => void
 }) {
   if (!event) return null
-
+  const isOwn = event.creator_id === currentUserId
   return (
     <div className="event-details-sidebar" onClick={(e) => e.stopPropagation()}>
       <button className="event-details-close" type="button" onClick={onClose}>
@@ -52,6 +66,26 @@ export default function EventDetailsSidebar({
             <span>None</span>
           )}
         </div>
+        {isLoggedIn && !isOwn && (
+          <button
+            className={`marker-popup__btn ${joined ? 'marker-popup__btn--secondary' : ''}`}
+            disabled={!joined && isFull}
+            onClick={() => joined ? onLeave(event.id) : onJoin(event.id)}
+          >
+            {joined ? 'Leave event' : isFull ? 'Event full' : 'Join event'}
+          </button>
+        )}
+        {!isLoggedIn && (
+          <div className="marker-popup__hint">Log in to join this event</div>
+        )}
+        {isOwn && (
+          <button
+            className="marker-popup__btn marker-popup__btn--danger"
+            onClick={() => onDeleteEvent(event.id)}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   )
