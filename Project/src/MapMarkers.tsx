@@ -119,9 +119,6 @@ export default function MapMarkers({
     currentUserId,
     isLoggedIn,
     joinedEventIds,
-    onJoin,
-    onLeave,
-    onDeleteEvent,
     onDeletePlan,
     onViewUserProfile,
     onMapClick,
@@ -133,11 +130,9 @@ export default function MapMarkers({
         <>
             {events.map((event) => {
                 const isOwn = event.creator_id === currentUserId
-                const joined = joinedEventIds.has(event.id)
-                const participantCount = event.event_participants?.length ?? 0
-                const isFull = event.capacity != null && participantCount >= event.capacity
-                const tags = event.tags ?? []
-                const participants = event.event_participants ?? []
+
+
+
 
                 return (
                     <Marker

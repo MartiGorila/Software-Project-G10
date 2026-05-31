@@ -12,7 +12,7 @@ export default function SubscriptionPanel({
     subscribedMarkers,
     currentUser,
     onRemoveSubscription,
-    onOpenProfile,
+
 }: SubscriptionPanelProps) {
     return (
         <aside className="sidebar">
