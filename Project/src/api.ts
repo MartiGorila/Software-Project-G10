@@ -2,18 +2,18 @@
 
 export const API_BASE = 'http://localhost:3000'
 
-const TOKEN_KEY = 'authToken'
+const TOKEN_KEY = 'token'
 
 export function getAuthToken(): string | null {
-    return sessionStorage.getItem(TOKEN_KEY)
+    return localStorage.getItem(TOKEN_KEY)
 }
 
 function setAuthToken(token: string): void {
-    sessionStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(TOKEN_KEY, token)
 }
 
 function clearAuthToken(): void {
-    sessionStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(TOKEN_KEY)
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -140,28 +140,24 @@ export function getPublicUser(userId: string): Promise<PublicProfile> {
 }
 
 export async function uploadAvatar(file: File): Promise<AuthUser> {
-    // Get current user id first
-    const me = await getCurrentUser()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const env = (import.meta as any).env ?? {}
-    const supabaseUrl = env.VITE_SUPABASE_URL as string
-    const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string
+    const token = getAuthToken()
+    const formData = new FormData()
+    formData.append('avatar', file)
 
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `avatars/${me.id}.${ext}`
+    const headers: Record<string, string> = {}
+    if (token) headers.Authorization = `Bearer ${token}`
 
-    const { error } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true, contentType: file.type })
-    if (error) throw new Error(error.message)
+    const response = await fetch(`${API_BASE}/upload/avatar`, {
+        method: 'POST',
+        headers,
+        body: formData,
+    })
+    const data = await response.json()
+    if (!response.ok) {
+        throw new Error(data.error ?? 'Failed to upload avatar.')
+    }
 
-    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-    const publicUrl = data.publicUrl
-
-    // Save the URL back to the user record and return updated profile
-    return updateCurrentUser({ avatar_url: publicUrl })
+    return data as AuthUser
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────

@@ -78,6 +78,24 @@ function formatBudget(budget: number | null) {
     return budget != null ? `€${budget.toFixed(2)}` : null
 }
 
+function userProfileButton(
+    userId: string | undefined,
+    username: string | undefined,
+    onViewUserProfile: (userId: string) => void,
+) {
+    if (!userId || !username) return null
+
+    return (
+        <button
+            type="button"
+            className="subscriber-name-btn"
+            onClick={() => onViewUserProfile(userId)}
+        >
+            {username}
+        </button>
+    )
+}
+
 type Props = {
     events: ApiEvent[]
     plans: ApiPlan[]
@@ -117,6 +135,7 @@ export default function MapMarkers({
                 const participantCount = event.event_participants?.length ?? 0
                 const isFull = event.capacity != null && participantCount >= event.capacity
                 const tags = event.tags ?? []
+                const participants = event.event_participants ?? []
 
                 return (
                     <Marker
@@ -132,9 +151,7 @@ export default function MapMarkers({
                                     <span>🕐 {formatTime(event.event_time)}</span>
                                     <span>
                                         👤 by{' '}
-                                        <button className="subscriber-name-btn" onClick={() => onViewUserProfile(event.creator_id)}>
-                                            {event.creator.username}
-                                        </button>
+                                        {userProfileButton(event.creator_id, event.creator?.username, onViewUserProfile) ?? 'Unknown'}
                                     </span>
                                     {event.capacity != null && (
                                         <span>👥 {participantCount}/{event.capacity} joined</span>
@@ -150,6 +167,22 @@ export default function MapMarkers({
                                 )}
                                 {event.description && (
                                     <div className="marker-popup__desc">{event.description}</div>
+                                )}
+                                {participants.length > 0 && (
+                                    <div className="event-subscribers">
+                                        <span className="event-subscribers__label">Participants</span>
+                                        <div className="event-subscribers__list">
+                                            {participants.map((participant) => (
+                                                <span key={participant.user_id} className="event-subscribers__item">
+                                                    {userProfileButton(
+                                                        participant.user_id,
+                                                        participant.user?.username,
+                                                        onViewUserProfile,
+                                                    ) ?? 'Unknown user'}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
                                 <div className="marker-popup__actions">
                                     {isLoggedIn && !isOwn && (
@@ -195,9 +228,7 @@ export default function MapMarkers({
                                 <div className="marker-popup__meta">
                                     <span>
                                         👤 by{' '}
-                                        <button className="subscriber-name-btn" onClick={() => onViewUserProfile(plan.creator_id)}>
-                                            {plan.creator.username}
-                                        </button>
+                                        {userProfileButton(plan.creator_id, plan.creator?.username, onViewUserProfile) ?? 'Unknown'}
                                     </span>
                                     {plan.budget != null && <span>💰 {formatBudget(plan.budget)}</span>}
                                 </div>
