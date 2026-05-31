@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import MapMarkers from './MapMarkers'
 import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
@@ -13,18 +13,22 @@ import {
     getAuthToken,
     getCurrentUser,
     getEvents,
+    getFriends,
     getPlans,
     getTags,
+    addFriend,
     joinEvent,
     leaveEvent,
     deleteEvent,
     deletePlan,
+    removeFriend,
     login,
     logout as apiLogout,
     register,
     ApiEvent,
     ApiPlan,
     AuthUser,
+    Friend,
     Tag,
 } from './api'
 
@@ -60,6 +64,9 @@ function App() {
     const [plans, setPlans] = useState<ApiPlan[]>([])
     const [allTags, setAllTags] = useState<Tag[]>([])
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+    const [friends, setFriends] = useState<Friend[]>([])
+    const [friendsLoading, setFriendsLoading] = useState(false)
+    const [friendsError, setFriendsError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
@@ -79,6 +86,7 @@ function App() {
 
     const [showOwnProfile, setShowOwnProfile] = useState(false)
     const [viewingUserId, setViewingUserId] = useState<string | null>(null)
+    const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends])
 
     // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -95,6 +103,26 @@ function App() {
                     .map((e) => e.id),
             )
             setJoinedEventIds(joined)
+        }
+    }
+
+    const refreshFriends = async () => {
+        if (!getAuthToken()) {
+            setFriends([])
+            setFriendsError('')
+            return
+        }
+
+        try {
+            setFriendsLoading(true)
+            setFriendsError('')
+            const data = await getFriends()
+            setFriends(data)
+        } catch (err) {
+            setFriends([])
+            setFriendsError(err instanceof Error ? err.message : 'Failed to load friends.')
+        } finally {
+            setFriendsLoading(false)
         }
     }
 
@@ -115,6 +143,7 @@ function App() {
                     try {
                         const user = await getCurrentUser()
                         setCurrentUser(user)
+                        await refreshFriends()
                         const joined = new Set(
                             eventsData
                                 .filter((e) => e.event_participants?.some((p) => p.user_id === user.id))
@@ -158,6 +187,7 @@ function App() {
             setShowLoginForm(false)
             setLoginForm({ email: '', password: '' })
             await refreshData(data.user)
+            await refreshFriends()
         } catch (err) {
             setLoginError(err instanceof Error ? err.message : 'Login failed.')
         }
@@ -176,6 +206,8 @@ function App() {
             setShowLoginForm(false)
             setRegisterForm({ username: '', email: '', password: '' })
             setAuthMode('login')
+            await refreshData(data.user)
+            await refreshFriends()
         } catch (err) {
             setLoginError(err instanceof Error ? err.message : 'Registration failed.')
         }
@@ -184,6 +216,8 @@ function App() {
     const handleLogout = () => {
         apiLogout()
         setCurrentUser(null)
+        setFriends([])
+        setFriendsError('')
         setJoinedEventIds(new Set())
         setShowLoginForm(false)
         setLoginError('')
@@ -278,6 +312,16 @@ function App() {
         getCurrentUser().then(setCurrentUser).catch(console.error)
     }
 
+    const handleAddFriend = async (userId: string) => {
+        await addFriend(userId)
+        await refreshFriends()
+    }
+
+    const handleRemoveFriend = async (userId: string) => {
+        await removeFriend(userId)
+        await refreshFriends()
+    }
+
     return (
         <div className="map-shell" style={{ display: 'flex' }}>
             <MapContainer
@@ -320,6 +364,7 @@ function App() {
                         onLeave={handleLeave}
                         onDeleteEvent={handleDeleteEvent}
                         onViewUserProfile={setViewingUserId}
+                        friendIds={friendIds}
                     />
                 </div>
             )}
@@ -458,7 +503,12 @@ function App() {
                 {/* Subscription panel */}
                 <SubscriptionPanel
                     subscribedMarkers={subscribedMarkers}
+                    friends={friends}
+                    friendsLoading={friendsLoading}
+                    friendsError={friendsError}
                     onRemoveSubscription={handleLeave}
+                    onRemoveFriend={handleRemoveFriend}
+                    onViewUserProfile={setViewingUserId}
                     currentUser={currentUser}
                     onOpenProfile={() => setShowOwnProfile(true)}
                 />
@@ -488,6 +538,10 @@ function App() {
             {viewingUserId && (
                 <PublicProfileModal
                     userId={viewingUserId}
+                    currentUserId={currentUser?.id ?? null}
+                    friendIds={friendIds}
+                    onAddFriend={handleAddFriend}
+                    onRemoveFriend={handleRemoveFriend}
                     onClose={() => setViewingUserId(null)}
                 />
             )}

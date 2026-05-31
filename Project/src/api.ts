@@ -88,6 +88,12 @@ export type PublicProfile = {
     created_at: string
 }
 
+export type Friend = {
+    id: string
+    username: string
+    avatar_url: string | null
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function login(
@@ -137,6 +143,18 @@ export function updateCurrentUser(body: {
 
 export function getPublicUser(userId: string): Promise<PublicProfile> {
     return apiFetch<PublicProfile>(`/users/${userId}`)
+}
+
+export function getFriends(): Promise<Friend[]> {
+    return apiFetch<Friend[]>('/users/me/friends')
+}
+
+export function addFriend(friendId: string): Promise<{ ok: true }> {
+    return apiFetch<{ ok: true }>(`/users/me/friends/${friendId}`, { method: 'POST' })
+}
+
+export function removeFriend(friendId: string): Promise<void> {
+    return apiFetch<void>(`/users/me/friends/${friendId}`, { method: 'DELETE' })
 }
 
 export async function uploadAvatar(file: File): Promise<AuthUser> {
