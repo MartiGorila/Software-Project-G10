@@ -8,6 +8,7 @@ export default function EventDetailsSidebar({
   currentUserId,
   joined,
   isFull,
+  friendIds,
   onJoin,
   onLeave,
   onDeleteEvent,
@@ -19,6 +20,7 @@ export default function EventDetailsSidebar({
   currentUserId: string | null
   joined: boolean
   isFull: boolean
+  friendIds: Set<string>
   onJoin: (eventId: string) => void
   onLeave: (eventId: string) => void
   onDeleteEvent: (eventId: string) => void
@@ -27,6 +29,8 @@ export default function EventDetailsSidebar({
   if (!event) return null
   const isOwn = event.creator_id === currentUserId
   const tags = event.tags ?? []
+  const participants = event.event_participants ?? []
+  const friendParticipants = participants.filter((participant) => friendIds.has(participant.user_id))
   return (
     <div className="event-details-sidebar" onClick={(e) => e.stopPropagation()}>
       <button className="event-details-close" type="button" onClick={onClose}>
@@ -79,10 +83,34 @@ export default function EventDetailsSidebar({
         )}
       </div>
       <div className="event-details-row event-details-row--participants">
+        <span className="event-details-title">Friends attending</span>
+        <div className="event-details-participants event-details-participants--friends">
+          {friendParticipants.length > 0 ? (
+            friendParticipants.map((participant) => (
+              <div key={participant.user_id} className="event-details-participant event-details-participant--friend">
+                {participant.user?.username ? (
+                  <button
+                    type="button"
+                    className="event-details-profile-btn"
+                    onClick={() => onViewUserProfile(participant.user_id)}
+                  >
+                    {participant.user.username}
+                  </button>
+                ) : (
+                  participant.user_id
+                )}
+              </div>
+            ))
+          ) : (
+            <span>None</span>
+          )}
+        </div>
+      </div>
+      <div className="event-details-row event-details-row--participants">
         <span className="event-details-title">Subscribed users</span>
         <div className="event-details-participants">
-          {event.event_participants && event.event_participants.length > 0 ? (
-            event.event_participants.map((participant) => (
+          {participants.length > 0 ? (
+            participants.map((participant) => (
               <div key={participant.user_id} className="event-details-participant">
                 {participant.user?.username ? (
                   <button

@@ -4,6 +4,10 @@ import { PublicProfile } from './types'
 
 type PublicProfileModalProps = {
     userId: string
+    currentUserId: string | null
+    friendIds: Set<string>
+    onAddFriend: (userId: string) => Promise<void>
+    onRemoveFriend: (userId: string) => Promise<void>
     onClose: () => void
 }
 
@@ -35,10 +39,19 @@ function Avatar({ url, username, size = 72 }: { url: string | null; username: st
     )
 }
 
-export default function PublicProfileModal({ userId, onClose }: PublicProfileModalProps) {
+export default function PublicProfileModal({
+    userId,
+    currentUserId,
+    friendIds,
+    onAddFriend,
+    onRemoveFriend,
+    onClose,
+}: PublicProfileModalProps) {
     const [profile, setProfile] = useState<PublicProfile | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [friendActionLoading, setFriendActionLoading] = useState(false)
+    const [friendActionError, setFriendActionError] = useState('')
 
     useEffect(() => {
         let cancelled = false
@@ -47,6 +60,7 @@ export default function PublicProfileModal({ userId, onClose }: PublicProfileMod
             try {
                 setLoading(true)
                 setError('')
+                setFriendActionError('')
                 const data = await getPublicUser(userId)
                 if (!cancelled) {
                     setProfile(data)
@@ -76,6 +90,28 @@ export default function PublicProfileModal({ userId, onClose }: PublicProfileMod
               year: 'numeric',
           })
         : null
+    const showFriendControls = Boolean(currentUserId && profile && profile.id !== currentUserId)
+    const isFriend = profile ? friendIds.has(profile.id) : false
+
+    const handleFriendAction = async () => {
+        if (!profile) return
+
+        try {
+            setFriendActionLoading(true)
+            setFriendActionError('')
+            if (isFriend) {
+                await onRemoveFriend(profile.id)
+            } else {
+                await onAddFriend(profile.id)
+            }
+        } catch (actionError) {
+            setFriendActionError(
+                actionError instanceof Error ? actionError.message : 'Friend action failed.',
+            )
+        } finally {
+            setFriendActionLoading(false)
+        }
+    }
 
     return (
         <div className="profile-backdrop" onClick={(event) => event.target === event.currentTarget && onClose()}>
@@ -113,6 +149,26 @@ export default function PublicProfileModal({ userId, onClose }: PublicProfileMod
                                 <span className="profile-meta-value profile-meta-id">{profile.id.slice(0, 8)}...</span>
                             </div>
                         </div>
+
+                        {showFriendControls && (
+                            <div className="profile-friend-actions">
+                                <button
+                                    type="button"
+                                    className={`profile-friend-button ${isFriend ? 'profile-friend-button--remove' : ''}`}
+                                    disabled={friendActionLoading}
+                                    onClick={handleFriendAction}
+                                >
+                                    {friendActionLoading
+                                        ? 'Updating...'
+                                        : isFriend
+                                          ? 'Remove Friend'
+                                          : 'Add Friend'}
+                                </button>
+                                {friendActionError && (
+                                    <div className="profile-error profile-error--compact">{friendActionError}</div>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
