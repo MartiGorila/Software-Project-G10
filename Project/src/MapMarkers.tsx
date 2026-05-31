@@ -1,5 +1,6 @@
 import L from 'leaflet'
-import { Marker, Popup, useMapEvents } from 'react-leaflet'
+import { Marker, Popup, useMap, useMapEvents } from 'react-leaflet'
+import { useEffect } from 'react'
 import { ApiEvent, ApiPlan } from './api'
 
 // ── Custom icons ──────────────────────────────────────────────────────────────
@@ -67,6 +68,18 @@ function ClickHandler({ onClick }: { onClick: (pos: [number, number]) => void })
     return null
 }
 
+function FocusMap({ position }: { position: [number, number] | null }) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (position) {
+            map.panTo(position)
+        }
+    }, [map, position])
+
+    return null
+}
+
 // function formatTime(iso: string) {
 //     return new Date(iso).toLocaleString('en-GB', {
 //         weekday: 'short', day: 'numeric', month: 'short',
@@ -107,6 +120,7 @@ type Props = {
     clickPosition: [number, number] | null
     onCloseClick: () => void
     onEventSelect?: (eventId: string) => void
+    focusPosition?: [number, number] | null
 }
 
 export default function MapMarkers({
@@ -120,9 +134,11 @@ export default function MapMarkers({
     clickPosition,
     onCloseClick,
     onEventSelect,
+    focusPosition,
 }: Props) {
     return (
         <>
+            <FocusMap position={focusPosition ?? null} />
             {events.map((event) => {
                 const isOwn = event.creator_id === currentUserId
 

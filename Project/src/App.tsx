@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
@@ -6,6 +6,7 @@ import MapMarkers from './MapMarkers'
 import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
 import FilterPanel from './FilterPanel'
+import SuggestionsPanel from './SuggestionsPanel'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
@@ -29,6 +30,7 @@ import {
     ApiPlan,
     AuthUser,
     Friend,
+    SuggestionResult,
     Tag,
 } from './api'
 
@@ -59,6 +61,16 @@ function eventToMarkerData(event: ApiEvent) {
     }
 }
 
+function MapCenterTracker({ onCenterChange }: { onCenterChange: (center: [number, number]) => void }) {
+    useMapEvents({
+        moveend(event) {
+            const center = event.target.getCenter()
+            onCenterChange([center.lat, center.lng])
+        },
+    })
+    return null
+}
+
 function App() {
     const [events, setEvents] = useState<ApiEvent[]>([])
     const [plans, setPlans] = useState<ApiPlan[]>([])
@@ -71,6 +83,8 @@ function App() {
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+    const [mapCenter, setMapCenter] = useState<[number, number]>(barcelonaCenter)
+    const [suggestionFocus, setSuggestionFocus] = useState<[number, number] | null>(null)
 
     // ── Filter state ──────────────────────────────────────────────────────────
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
@@ -291,6 +305,13 @@ function App() {
     const handleCloseEventDetails = () => {
         setSelectedEventId(null)
     }
+
+    const handleSelectSuggestion = (suggestion: SuggestionResult) => {
+        setSuggestionFocus([suggestion.lat, suggestion.lng])
+        if (suggestion.type === 'event') {
+            setSelectedEventId(suggestion.id)
+        }
+    }
     // ── Filter actions ────────────────────────────────────────────────────────
 
     const handleToggleTag = (tagId: number) => {
@@ -339,6 +360,8 @@ function App() {
                     <Popup>Barcelona center: Plaça de Catalunya.</Popup>
                 </Marker>
 
+                <MapCenterTracker onCenterChange={setMapCenter} />
+
                 <MapMarkers
                     events={filteredEvents}
                     plans={filteredPlans}
@@ -350,6 +373,7 @@ function App() {
                     clickPosition={clickPosition}
                     onCloseClick={() => setClickPosition(null)}
                     onEventSelect={handleSelectEvent}
+                    focusPosition={suggestionFocus}
                 />
             </MapContainer>
 
@@ -482,6 +506,14 @@ function App() {
                     onClear={handleClearFilters}
                     filterType={filterType}
                     onFilterType={setFilterType}
+                />
+
+                <SuggestionsPanel
+                    mapCenter={mapCenter}
+                    selectedTagIds={selectedTagIds}
+                    filterType={filterType}
+                    tags={allTags}
+                    onSelectSuggestion={handleSelectSuggestion}
                 />
 
                 {/* Profile button //Moved this part to the login panel since it contains user info and actions that are not relevant when the user is not logged in

@@ -7,6 +7,7 @@ import plansRouter from './routes/plans'
 import usersRouter from './routes/users'
 import tagsRouter from './routes/tags'
 import uploadRouter from './routes/upload'
+import suggestionsRouter from './routes/suggestions'
 
 export const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -28,6 +29,7 @@ app.use('/plans', plansRouter)
 app.use('/users', usersRouter)
 app.use('/tags', tagsRouter)
 app.use('/upload', uploadRouter)
+app.use('/suggestions', suggestionsRouter)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

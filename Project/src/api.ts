@@ -94,6 +94,21 @@ export type Friend = {
     avatar_url: string | null
 }
 
+export type SuggestionResult = {
+    type: 'event' | 'plan'
+    id: string
+    name: string
+    description: string | null
+    lat: number
+    lng: number
+    budget: number | null
+    tags: Tag[]
+    score: number
+    distance_km: number
+    reasons: string[]
+    event_time?: string
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function login(
@@ -211,6 +226,31 @@ export function addTagToPlan(planId: string, tagId: number): Promise<void> {
 
 export function removeTagFromPlan(planId: string, tagId: number): Promise<void> {
     return apiFetch<void>(`/tags/plans/${planId}/tags/${tagId}`, { method: 'DELETE' })
+}
+
+// ── Suggestions ──────────────────────────────────────────────────────────────
+
+export function getSuggestions(params: {
+    lat: number
+    lng: number
+    radius?: number
+    tag_ids?: number[]
+    budget_max?: number
+    type?: 'all' | 'events' | 'plans'
+}): Promise<{ results: SuggestionResult[] }> {
+    const query = new URLSearchParams({
+        lat: String(params.lat),
+        lng: String(params.lng),
+    })
+
+    if (params.radius !== undefined) query.set('radius', String(params.radius))
+    if (params.budget_max !== undefined) query.set('budget_max', String(params.budget_max))
+    if (params.type !== undefined) query.set('type', params.type)
+    if (params.tag_ids && params.tag_ids.length > 0) {
+        query.set('tag_ids', params.tag_ids.join(','))
+    }
+
+    return apiFetch<{ results: SuggestionResult[] }>(`/suggestions?${query.toString()}`)
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
