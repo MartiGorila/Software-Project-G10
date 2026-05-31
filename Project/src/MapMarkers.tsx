@@ -110,6 +110,7 @@ type Props = {
     onMapClick: (pos: [number, number]) => void
     clickPosition: [number, number] | null
     onCloseClick: () => void
+    onEventSelect?: (eventId: string) => void
 }
 
 export default function MapMarkers({
@@ -126,6 +127,7 @@ export default function MapMarkers({
     onMapClick,
     clickPosition,
     onCloseClick,
+    onEventSelect,
 }: Props) {
     return (
         <>
@@ -142,73 +144,8 @@ export default function MapMarkers({
                         key={`event-${event.id}`}
                         position={[event.lat, event.lng]}
                         icon={isOwn ? ownEventIcon : eventIcon}
-                    >
-                        <Popup>
-                            <div className="marker-popup">
-                                <div className="marker-popup__badge marker-popup__badge--event">Event</div>
-                                <div className="marker-popup__title">{event.name}</div>
-                                <div className="marker-popup__meta">
-                                    <span>🕐 {formatTime(event.event_time)}</span>
-                                    <span>
-                                        👤 by{' '}
-                                        {userProfileButton(event.creator_id, event.creator?.username, onViewUserProfile) ?? 'Unknown'}
-                                    </span>
-                                    {event.capacity != null && (
-                                        <span>👥 {participantCount}/{event.capacity} joined</span>
-                                    )}
-                                    {event.budget != null && <span>💰 {formatBudget(event.budget)}</span>}
-                                </div>
-                                {tags.length > 0 && (
-                                    <div className="marker-popup__tags">
-                                        {tags.map((tag) => (
-                                            <span key={tag.id} className="marker-popup__tag">#{tag.name}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                {event.description && (
-                                    <div className="marker-popup__desc">{event.description}</div>
-                                )}
-                                {participants.length > 0 && (
-                                    <div className="event-subscribers">
-                                        <span className="event-subscribers__label">Participants</span>
-                                        <div className="event-subscribers__list">
-                                            {participants.map((participant) => (
-                                                <span key={participant.user_id} className="event-subscribers__item">
-                                                    {userProfileButton(
-                                                        participant.user_id,
-                                                        participant.user?.username,
-                                                        onViewUserProfile,
-                                                    ) ?? 'Unknown user'}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="marker-popup__actions">
-                                    {isLoggedIn && !isOwn && (
-                                        <button
-                                            className={`marker-popup__btn ${joined ? 'marker-popup__btn--secondary' : ''}`}
-                                            disabled={!joined && isFull}
-                                            onClick={() => joined ? onLeave(event.id) : onJoin(event.id)}
-                                        >
-                                            {joined ? 'Leave event' : isFull ? 'Event full' : 'Join event'}
-                                        </button>
-                                    )}
-                                    {!isLoggedIn && (
-                                        <div className="marker-popup__hint">Log in to join this event</div>
-                                    )}
-                                    {isOwn && (
-                                        <button
-                                            className="marker-popup__btn marker-popup__btn--danger"
-                                            onClick={() => onDeleteEvent(event.id)}
-                                        >
-                                            Delete
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
+                        eventHandlers={onEventSelect ? { click: () => onEventSelect(event.id) } : undefined}
+                    />
                 )
             })}
 

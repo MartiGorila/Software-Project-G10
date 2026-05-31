@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import './App.css'
 import { FormEvent, useEffect, useState } from 'react'
 import MapMarkers from './MapMarkers'
+import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
 import FilterPanel from './FilterPanel'
 import ProfileModal from './ProfileModal'
@@ -62,6 +63,7 @@ function App() {
     const [isLoading, setIsLoading] = useState(true)
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
 
     // ── Filter state ──────────────────────────────────────────────────────────
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
@@ -248,7 +250,13 @@ function App() {
         setPlans(updatedPlans)
         setAllTags(tags)
     }
-
+    const selectedEvent = selectedEventId ? events.find((event) => event.id === selectedEventId) ?? null : null
+    const handleSelectEvent = (eventId: string) => {
+        setSelectedEventId(eventId)
+    }
+    const handleCloseEventDetails = () => {
+        setSelectedEventId(null)
+    }
     // ── Filter actions ────────────────────────────────────────────────────────
 
     const handleToggleTag = (tagId: number) => {
@@ -271,12 +279,12 @@ function App() {
     }
 
     return (
-        <div className="map-shell">
+        <div className="map-shell" style={{ display: 'flex' }}>
             <MapContainer
                 className="leaflet-container"
                 center={barcelonaCenter}
                 zoom={14}
-                style={{ height: '100vh', width: '100vw' }}
+                style={{ height: '100vh', flex: 1 }}
             >
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -301,8 +309,15 @@ function App() {
                     onMapClick={setClickPosition}
                     clickPosition={clickPosition}
                     onCloseClick={() => setClickPosition(null)}
+                    onEventSelect={handleSelectEvent}
                 />
             </MapContainer>
+
+            {selectedEvent && (
+                <div className="event-details-overlay" onClick={handleCloseEventDetails}>
+                    <EventDetailsSidebar event={selectedEvent} onClose={handleCloseEventDetails} />
+                </div>
+            )}
 
             {/* Sidebar */}
             <div className="sidebar-overlay">
@@ -320,7 +335,23 @@ function App() {
                         {currentUser ? 'Logout' : 'Login / Register'}
                     </button>
                     {currentUser && (
-                        <div className="login-info">Logged in as <strong>{currentUser.username}</strong></div>
+                        <div className="login-info">
+                            {/* Profile button */}
+                            {currentUser && (
+                                <button type="button" className="sidebar-profile-btn" onClick={() => setShowOwnProfile(true)}>
+                                    <span className="sidebar-profile-avatar">
+                                        {currentUser.avatar_url
+                                            ? <img src={currentUser.avatar_url} alt={currentUser.username} />
+                                            : currentUser.username.slice(0, 2).toUpperCase()}
+                                    </span>
+                                    <span className="sidebar-profile-label">
+                                        <strong>{currentUser.username}</strong>
+                                        <small>View &amp; edit profile</small>
+                                    </span>
+                                    <span className="sidebar-profile-arrow">→</span>
+                                </button>
+                            )}
+                        </div>
                     )}
                     {!currentUser && showLoginForm && (
                         <div>
@@ -403,7 +434,7 @@ function App() {
                     onFilterType={setFilterType}
                 />
 
-                {/* Profile button */}
+                {/* Profile button //Moved this part to the login panel since it contains user info and actions that are not relevant when the user is not logged in
                 {currentUser && (
                     <button type="button" className="sidebar-profile-btn" onClick={() => setShowOwnProfile(true)}>
                         <span className="sidebar-profile-avatar">
@@ -417,7 +448,7 @@ function App() {
                         </span>
                         <span className="sidebar-profile-arrow">→</span>
                     </button>
-                )}
+                )} */}
 
                 {/* Subscription panel */}
                 <SubscriptionPanel
@@ -426,18 +457,22 @@ function App() {
                     currentUser={currentUser}
                     onOpenProfile={() => setShowOwnProfile(true)}
                 />
-
-                {/* Create panel */}
-                {clickPosition && currentUser && (
-                    <CreatePanel
-                        position={clickPosition}
-                        availableTags={allTags}
-                        onEventCreated={handleEventCreated}
-                        onPlanCreated={handlePlanCreated}
-                        onCancel={() => setClickPosition(null)}
-                    />
-                )}
             </div>
+
+            {/* Create panel (left side) */}
+            {clickPosition && currentUser && (
+                <div className="create-panel-overlay">
+                    <div style={{ padding: '1.25rem' }}>
+                        <CreatePanel
+                            position={clickPosition}
+                            availableTags={allTags}
+                            onEventCreated={handleEventCreated}
+                            onPlanCreated={handlePlanCreated}
+                            onCancel={() => setClickPosition(null)}
+                        />
+                    </div>
+                </div>
+            )}
 
             {showOwnProfile && currentUser && (
                 <ProfileModal
