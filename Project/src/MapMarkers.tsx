@@ -67,12 +67,12 @@ function ClickHandler({ onClick }: { onClick: (pos: [number, number]) => void })
     return null
 }
 
-function formatTime(iso: string) {
-    return new Date(iso).toLocaleString('en-GB', {
-        weekday: 'short', day: 'numeric', month: 'short',
-        hour: '2-digit', minute: '2-digit',
-    })
-}
+// function formatTime(iso: string) {
+//     return new Date(iso).toLocaleString('en-GB', {
+//         weekday: 'short', day: 'numeric', month: 'short',
+//         hour: '2-digit', minute: '2-digit',
+//     })
+// }
 
 function formatBudget(budget: number | null) {
     return budget != null ? `€${budget.toFixed(2)}` : null
@@ -118,7 +118,6 @@ export default function MapMarkers({
     plans,
     currentUserId,
     isLoggedIn,
-    joinedEventIds,
     onDeletePlan,
     onViewUserProfile,
     onMapClick,
