@@ -1,0 +1,110 @@
+.event-details-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 2400;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.event-details-sidebar {
+  position: relative;
+  width: min(420px, 85vw);
+  max-width: 420px;
+  background: #111;
+  color: #f8fafc;
+  padding: 1.5rem;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.55);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+  transform: translateX(-100%);
+  animation: slideIn 0.24s ease forwards;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.event-details-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.event-details-header {
+  margin-bottom: 1rem;
+}
+
+.event-details-label {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: #60a5fa;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.event-details-row {
+  margin-bottom: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.event-details-title {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.event-details-participants {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.event-details-participant {
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.event-details-profile-btn {
+  background: none;
+  border: none;
+  color: #bfdbfe;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-details-profile-btn:hover {
+  color: #dbeafe;
+}
+
+.event-details-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.event-details-tag {
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.22);
+  color: #bfdbfe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+}
