@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import MapMarkers from './MapMarkers'
 import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
-import FilterPanel from './FilterPanel'
+import FilterPanel, { RelevanceFilter } from './FilterPanel'
 import SuggestionsPanel from './SuggestionsPanel'
 import ExplorePanel from './ExplorePanel'
 import PlannerPanel from './PlannerPanel'
@@ -48,6 +48,7 @@ import {
     SuggestionResult,
     Tag,
 } from './api'
+import { sortTagsForDisplay } from './categoryIcons'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
 
@@ -87,6 +88,7 @@ function App() {
     // ── Filter state ──────────────────────────────────────────────────────────
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
     const [filterType, setFilterType] = useState<'all' | 'events' | 'plans'>('all')
+    const [relevanceFilter, setRelevanceFilter] = useState<RelevanceFilter>('all')
 
     const [clickPosition, setClickPosition] = useState<[number, number] | null>(null)
 
@@ -187,14 +189,28 @@ function App() {
 
     // ── Filtered markers ──────────────────────────────────────────────────────
 
+    const matchesRelevance = (item: ApiEvent | ApiPlan, type: 'event' | 'plan') => {
+        if (relevanceFilter === 'all') return true
+        if (!currentUser) return false
+
+        if (relevanceFilter === 'mine') {
+            return item.creator_id === currentUser.id || (type === 'event' && joinedEventIds.has(item.id))
+        }
+
+        if (friendIds.has(item.creator_id)) return true
+        return type === 'event'
+            ? ((item as ApiEvent).event_participants ?? []).some((participant) => friendIds.has(participant.user_id))
+            : false
+    }
+
     const filteredEvents = (filterType === 'plans' ? [] : events).filter((e) =>
-        matchesTags(e.tags, selectedTagIds),
+        matchesTags(e.tags, selectedTagIds) && matchesRelevance(e, 'event'),
     )
     const filteredPlans = (filterType === 'events' ? [] : plans).filter((p) =>
-        matchesTags(p.tags, selectedTagIds),
+        matchesTags(p.tags, selectedTagIds) && matchesRelevance(p, 'plan'),
     )
     const visibleTags = useMemo(
-        () => allTags.filter((tag) => !tag.name.toLowerCase().startsWith('ci-')),
+        () => sortTagsForDisplay(allTags.filter((tag) => !tag.name.toLowerCase().startsWith('ci-'))),
         [allTags],
     )
     const subscribedEvents = events
@@ -251,6 +267,7 @@ function App() {
         setShowSavedContent(false)
         setViewingUserId(null)
         setSavedContent(emptySavedContent)
+        setRelevanceFilter('all')
     }
 
     // ── Join / Leave ──────────────────────────────────────────────────────────
@@ -381,6 +398,7 @@ function App() {
     const handleClearFilters = () => {
         setSelectedTagIds(new Set())
         setFilterType('all')
+        setRelevanceFilter('all')
     }
 
     // ── Profile ───────────────────────────────────────────────────────────────
@@ -576,6 +594,9 @@ function App() {
                         onClear={handleClearFilters}
                         filterType={filterType}
                         onFilterType={setFilterType}
+                        relevanceFilter={relevanceFilter}
+                        onRelevanceFilter={setRelevanceFilter}
+                        isLoggedIn={!!currentUser}
                     />
                 </section>
 
