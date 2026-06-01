@@ -539,32 +539,36 @@ export default function PlannerPanel({
                         </div>
                     </div>
 
-                    <div className="planner-summary">
-                        <div>
-                            <strong>{route.length}</strong>
-                            <span>stops</span>
+                    <div className="planner-route-tools">
+                        <div className="planner-summary">
+                            <div>
+                                <strong>{route.length}</strong>
+                                <span>stops</span>
+                            </div>
+                            <div>
+                                <strong>€{knownBudget.toFixed(2)}</strong>
+                                <span>{hasUnknownBudget ? 'known budget, some unknown' : 'known budget'}</span>
+                            </div>
+                            <div>
+                                <strong>{totalDistance.toFixed(1)}km</strong>
+                                <span>route distance</span>
+                            </div>
                         </div>
-                        <div>
-                            <strong>€{knownBudget.toFixed(2)}</strong>
-                            <span>{hasUnknownBudget ? 'known budget, some unknown' : 'known budget'}</span>
-                        </div>
-                        <div>
-                            <strong>{totalDistance.toFixed(1)}km</strong>
-                            <span>route distance</span>
-                        </div>
-                    </div>
 
-                    <div className="planner-save-row">
-                        {routeDateLabel && <span>Built around {routeDateLabel}</span>}
-                        <button
-                            type="button"
-                            className="planner-action planner-action--save"
-                            onClick={handleSaveRoute}
-                            disabled={!isLoggedIn || route.length === 0}
-                        >
-                            {isLoggedIn ? 'Save route' : 'Log in to save'}
-                        </button>
-                        {saveMessage && <span className="planner-save-row__message">{saveMessage}</span>}
+                        <div className="planner-save-row">
+                            {routeDateLabel && <span>Built around {routeDateLabel}</span>}
+                            {route.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="planner-action planner-action--save"
+                                    onClick={handleSaveRoute}
+                                    disabled={!isLoggedIn}
+                                >
+                                    {isLoggedIn ? 'Save route' : 'Log in to save'}
+                                </button>
+                            )}
+                            {saveMessage && <span className="planner-save-row__message">{saveMessage}</span>}
+                        </div>
                     </div>
 
                     <div className="planner-route">

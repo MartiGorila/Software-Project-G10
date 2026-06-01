@@ -1,9 +1,9 @@
-import { MarkerData } from './types'
-import { AuthUser, Friend } from './api'
+import { AuthUser, ApiEvent, Friend } from './api'
+import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 import { useState } from 'react'
 
 type SubscriptionPanelProps = {
-    subscribedMarkers: MarkerData[]
+    subscribedEvents: ApiEvent[]
     friends: Friend[]
     friendsLoading: boolean
     friendsError: string
@@ -14,7 +14,7 @@ type SubscriptionPanelProps = {
 }
 
 export default function SubscriptionPanel({
-    subscribedMarkers,
+    subscribedEvents,
     friends,
     friendsLoading,
     friendsError,
@@ -36,6 +36,19 @@ export default function SubscriptionPanel({
         } finally {
             setRemovingFriendId(null)
         }
+    }
+
+    const formatEventTime = (iso: string) => new Date(iso).toLocaleString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+
+    const getDescriptionPreview = (description: string | null) => {
+        if (!description) return ''
+        return description.length > 92 ? `${description.slice(0, 89)}...` : description
     }
 
     return (
@@ -90,25 +103,46 @@ export default function SubscriptionPanel({
                     <p className="sidebar-note">Saved markers you subscribed to appear here.</p>
                 </div>
                 {!currentUser && <div className="sidebar-empty">Log in to see your subscriptions.</div>}
-                {currentUser && subscribedMarkers.length === 0 && (
+                {currentUser && subscribedEvents.length === 0 && (
                     <div className="sidebar-empty">You have no subscriptions yet.</div>
                 )}
-                {currentUser && subscribedMarkers.length > 0 && (
-                    <ul className="sidebar-list">
-                        {subscribedMarkers.map((marker) => (
-                            <li key={marker.id} className="sidebar-item">
-                                <strong>{marker.name}</strong>
-                                <div>Time: {marker.hour}</div>
-                                {marker.description && <div>{marker.description}</div>}
+                {currentUser && subscribedEvents.length > 0 && (
+                    <ul className="subscribed-event-list">
+                        {subscribedEvents.map((event) => {
+                            const { visibleTags, hiddenCount } = getVisibleTags(event.tags, 3)
+                            const preview = getDescriptionPreview(event.description)
+
+                            return (
+                            <li key={event.id} className="subscribed-event-card">
+                                <div className="subscribed-event-card__topline">
+                                    <span className="explore-card__badge explore-card__badge--event">
+                                        <span className="explore-card__icon" aria-hidden="true">
+                                            {getCategoryIcon(event.tags, 'event')}
+                                        </span>
+                                        Event
+                                    </span>
+                                    <span className="subscribed-event-card__time">{formatEventTime(event.event_time)}</span>
+                                </div>
+                                <strong>{event.name}</strong>
+                                {preview && <p>{preview}</p>}
+                                {visibleTags.length > 0 && (
+                                    <div className="explore-card__tags">
+                                        {visibleTags.map((tag) => (
+                                            <span key={tag.id}>#{tag.name}</span>
+                                        ))}
+                                        {hiddenCount > 0 && <span className="explore-card__tag-more">+{hiddenCount} more</span>}
+                                    </div>
+                                )}
                                 <button
                                     type="button"
-                                    className="popup-button popup-unsubscribe"
-                                    onClick={() => onRemoveSubscription(marker.id)}
+                                    className="subscribed-event-card__unsubscribe"
+                                    onClick={() => onRemoveSubscription(event.id)}
                                 >
                                     Unsubscribe
                                 </button>
                             </li>
-                        ))}
+                            )
+                        })}
                     </ul>
                 )}
             </section>

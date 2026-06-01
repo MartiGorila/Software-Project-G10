@@ -114,7 +114,9 @@ type Props = {
     plans: ApiPlan[]
     currentUserId: string | null
     isLoggedIn: boolean
+    savedPlanIds: Set<string>
     onDeletePlan: (planId: string) => void
+    onSavePlan: (plan: ApiPlan) => { saved: boolean; message: string }
     onViewUserProfile: (userId: string) => void
     onMapClick: (pos: [number, number]) => void
     clickPosition: [number, number] | null
@@ -128,7 +130,9 @@ export default function MapMarkers({
     plans,
     currentUserId,
     isLoggedIn,
+    savedPlanIds,
     onDeletePlan,
+    onSavePlan,
     onViewUserProfile,
     onMapClick,
     clickPosition,
@@ -185,16 +189,23 @@ export default function MapMarkers({
                                 {plan.description && (
                                     <div className="marker-popup__desc">{plan.description}</div>
                                 )}
-                                {isOwn && (
-                                    <div className="marker-popup__actions">
+                                <div className="marker-popup__actions">
+                                    <button
+                                        className="marker-popup__btn marker-popup__btn--save"
+                                        onClick={() => onSavePlan(plan)}
+                                        disabled={!isLoggedIn || savedPlanIds.has(plan.id)}
+                                    >
+                                        {!isLoggedIn ? 'Log in to save' : savedPlanIds.has(plan.id) ? 'Saved' : 'Save plan'}
+                                    </button>
+                                    {isOwn && (
                                         <button
                                             className="marker-popup__btn marker-popup__btn--danger"
                                             onClick={() => onDeletePlan(plan.id)}
                                         >
                                             Delete
                                         </button>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </Popup>
                     </Marker>
