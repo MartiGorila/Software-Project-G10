@@ -59,23 +59,6 @@ function matchesTags(itemTags: Tag[] | undefined, selectedIds: Set<number>): boo
     return [...selectedIds].every((id) => ids.includes(id))
 }
 
-function eventToMarkerData(event: ApiEvent) {
-    return {
-        id: event.id,
-        position: [event.lat, event.lng] as [number, number],
-        name: event.name,
-        hour: new Date(event.event_time).toLocaleString('en-GB', {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-        }),
-        description: event.description ?? '',
-        creatorId: event.creator_id,
-    }
-}
-
 function MapCenterTracker({ onCenterChange }: { onCenterChange: (center: [number, number]) => void }) {
     useMapEvents({
         moveend(event) {
@@ -214,9 +197,8 @@ function App() {
         () => allTags.filter((tag) => !tag.name.toLowerCase().startsWith('ci-')),
         [allTags],
     )
-    const subscribedMarkers = events
+    const subscribedEvents = events
         .filter((event) => joinedEventIds.has(event.id))
-        .map(eventToMarkerData)
 
     // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -444,7 +426,10 @@ function App() {
                     onSelectPlan={handleSelectExplorePlan}
                     isLoggedIn={!!currentUser}
                     savedPlanIds={savedPlanIds}
+                    joinedEventIds={joinedEventIds}
                     onSavePlan={handleSavePlan}
+                    onSubscribeEvent={handleJoin}
+                    onUnsubscribeEvent={handleLeave}
                 />
             )}
 
@@ -551,7 +536,9 @@ function App() {
                                 plans={filteredPlans}
                                 currentUserId={currentUser?.id ?? null}
                                 isLoggedIn={!!currentUser}
+                                savedPlanIds={savedPlanIds}
                                 onDeletePlan={handleDeletePlan}
+                                onSavePlan={handleSavePlan}
                                 onViewUserProfile={setViewingUserId}
                                 onMapClick={setClickPosition}
                                 clickPosition={clickPosition}
@@ -599,6 +586,8 @@ function App() {
                         selectedTagIds={selectedTagIds}
                         filterType={filterType}
                         tags={visibleTags}
+                        events={events}
+                        friendIds={friendIds}
                         onSelectSuggestion={handleSelectSuggestion}
                     />
                 </section>
@@ -606,7 +595,7 @@ function App() {
                 <section className="control-section">
                     <div className="control-section__label" id="friends-panel">Friends &amp; subscribed events</div>
                     <SubscriptionPanel
-                        subscribedMarkers={subscribedMarkers}
+                        subscribedEvents={subscribedEvents}
                         friends={friends}
                         friendsLoading={friendsLoading}
                         friendsError={friendsError}

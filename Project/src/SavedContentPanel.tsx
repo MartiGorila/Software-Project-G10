@@ -1,6 +1,7 @@
 import type { ApiEvent, Tag } from './api'
 import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 import type { SavedContentState, SavedPlan, SavedRoute, SavedRouteStop } from './savedContent'
+import { useState } from 'react'
 
 type SavedContentPanelProps = {
     savedContent: SavedContentState
@@ -112,9 +113,12 @@ function SavedRouteCard({
     onRemoveRoute: (routeId: string) => void
 }) {
     const eventIds = new Set(events.map((event) => event.id))
+    const [expanded, setExpanded] = useState(false)
+    const previewStops = expanded ? route.stops : route.stops.slice(0, 2)
+    const hiddenStopCount = Math.max(0, route.stops.length - previewStops.length)
 
     return (
-        <article className="saved-card">
+        <article className="saved-card saved-route-card">
             <div className="saved-card__header">
                 <div>
                     <h3>{route.title}</h3>
@@ -130,7 +134,7 @@ function SavedRouteCard({
                 <span>{route.summary.totalDistance.toFixed(1)}km</span>
             </div>
             <ol className="saved-route-stops">
-                {route.stops.map((stop) => (
+                {previewStops.map((stop) => (
                     <RouteStopRow
                         key={`${route.id}-${stop.type}-${stop.id}`}
                         stop={stop}
@@ -140,6 +144,15 @@ function SavedRouteCard({
                     />
                 ))}
             </ol>
+            {route.stops.length > 2 && (
+                <button
+                    type="button"
+                    className="saved-route-card__toggle"
+                    onClick={() => setExpanded((value) => !value)}
+                >
+                    {expanded ? 'Show fewer stops' : `Show all stops · +${hiddenStopCount} more`}
+                </button>
+            )}
         </article>
     )
 }

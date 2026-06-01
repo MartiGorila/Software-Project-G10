@@ -17,7 +17,10 @@ type ExplorePanelProps = {
     onSelectPlan: (position: [number, number]) => void
     isLoggedIn: boolean
     savedPlanIds: Set<string>
+    joinedEventIds: Set<string>
     onSavePlan: (plan: ApiPlan) => { saved: boolean; message: string }
+    onSubscribeEvent: (eventId: string) => Promise<void>
+    onUnsubscribeEvent: (eventId: string) => Promise<void>
 }
 
 const EARTH_RADIUS_KM = 6371
@@ -67,18 +70,42 @@ export default function ExplorePanel({
     onSelectPlan,
     isLoggedIn,
     savedPlanIds,
+    joinedEventIds,
     onSavePlan,
+    onSubscribeEvent,
+    onUnsubscribeEvent,
 }: ExplorePanelProps) {
     const [query, setQuery] = useState('')
     const [typeFilter, setTypeFilter] = useState<'all' | 'events' | 'plans'>('all')
     const [radiusKm, setRadiusKm] = useState(10)
     const [selectedItem, setSelectedItem] = useState<ExploreItem | null>(null)
     const [saveMessage, setSaveMessage] = useState('')
+    const [updatingEventId, setUpdatingEventId] = useState<string | null>(null)
 
     const activeTags = useMemo(
         () => tags.filter((tag) => selectedTagIds.has(tag.id)),
         [selectedTagIds, tags],
     )
+
+    const handleSavePlan = (plan: ApiPlan) => {
+        const result = onSavePlan(plan)
+        setSaveMessage(result.message)
+    }
+
+    const handleToggleEventSubscription = async (eventId: string) => {
+        if (!isLoggedIn || updatingEventId) return
+
+        try {
+            setUpdatingEventId(eventId)
+            if (joinedEventIds.has(eventId)) {
+                await onUnsubscribeEvent(eventId)
+            } else {
+                await onSubscribeEvent(eventId)
+            }
+        } finally {
+            setUpdatingEventId(null)
+        }
+    }
 
     const results = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase()
@@ -181,10 +208,7 @@ export default function ExplorePanel({
                                         <button
                                             type="button"
                                             className="explore-detail__secondary"
-                                            onClick={() => {
-                                                const result = onSavePlan(selectedItem.item)
-                                                setSaveMessage(result.message)
-                                            }}
+                                            onClick={() => handleSavePlan(selectedItem.item)}
                                             disabled={!isLoggedIn || savedPlanIds.has(selectedItem.item.id)}
                                         >
                                             {!isLoggedIn
@@ -258,38 +282,69 @@ export default function ExplorePanel({
                             {results.map((result) => {
                                 const { visibleTags, hiddenCount } = getVisibleTags(result.item.tags)
                                 return (
-                                    <button
+                                    <article
                                         key={`${result.type}-${result.item.id}`}
-                                    type="button"
-                                    className="explore-card"
-                                    onClick={() => {
-                                        setSaveMessage('')
-                                        setSelectedItem(result)
-                                    }}
-                                >
-                                        <div className="explore-card__topline">
-                                            <span className={`explore-card__badge explore-card__badge--${result.type}`}>
-                                                <span className="explore-card__icon" aria-hidden="true">
-                                                    {getCategoryIcon(result.item.tags, result.type)}
+                                        className="explore-card"
+                                    >
+                                        <button
+                                            type="button"
+                                            className="explore-card__main"
+                                            onClick={() => {
+                                                setSaveMessage('')
+                                                setSelectedItem(result)
+                                            }}
+                                        >
+                                            <div className="explore-card__topline">
+                                                <span className={`explore-card__badge explore-card__badge--${result.type}`}>
+                                                    <span className="explore-card__icon" aria-hidden="true">
+                                                        {getCategoryIcon(result.item.tags, result.type)}
+                                                    </span>
+                                                    {result.type === 'event' ? 'Event' : 'Plan'}
                                                 </span>
-                                                {result.type === 'event' ? 'Event' : 'Plan'}
-                                            </span>
-                                            <span className="explore-card__distance">{result.distanceKm.toFixed(1)}km away</span>
-                                        </div>
-                                        <h3>{result.item.name}</h3>
-                                        <div className="explore-card__meta">
-                                            <span>{formatBudget(result.item.budget)}</span>
-                                            {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
-                                        </div>
-                                        {visibleTags.length > 0 && (
-                                            <div className="explore-card__tags">
-                                                {visibleTags.map((tag) => (
-                                                    <span key={tag.id}>#{tag.name}</span>
-                                                ))}
-                                                {hiddenCount > 0 && <span className="explore-card__tag-more">+{hiddenCount} more</span>}
+                                                <span className="explore-card__distance">{result.distanceKm.toFixed(1)}km away</span>
                                             </div>
+                                            <h3>{result.item.name}</h3>
+                                            <div className="explore-card__meta">
+                                                <span>{formatBudget(result.item.budget)}</span>
+                                                {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
+                                            </div>
+                                            {visibleTags.length > 0 && (
+                                                <div className="explore-card__tags">
+                                                    {visibleTags.map((tag) => (
+                                                        <span key={tag.id}>#{tag.name}</span>
+                                                    ))}
+                                                    {hiddenCount > 0 && <span className="explore-card__tag-more">+{hiddenCount} more</span>}
+                                                </div>
+                                            )}
+                                        </button>
+                                        <div className="explore-card__actions">
+                                        {result.type === 'event' ? (
+                                            <button
+                                                type="button"
+                                                className="explore-card__action explore-card__action--event"
+                                                onClick={() => handleToggleEventSubscription(result.item.id)}
+                                                disabled={!isLoggedIn || updatingEventId === result.item.id}
+                                            >
+                                                {!isLoggedIn
+                                                    ? 'Log in to subscribe'
+                                                    : updatingEventId === result.item.id
+                                                        ? 'Updating...'
+                                                        : joinedEventIds.has(result.item.id)
+                                                            ? 'Unsubscribe'
+                                                            : 'Subscribe'}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="explore-card__action explore-card__action--plan"
+                                                onClick={() => handleSavePlan(result.item)}
+                                                disabled={!isLoggedIn || savedPlanIds.has(result.item.id)}
+                                            >
+                                                {!isLoggedIn ? 'Log in to save' : savedPlanIds.has(result.item.id) ? 'Saved' : 'Save plan'}
+                                            </button>
                                         )}
-                                    </button>
+                                        </div>
+                                    </article>
                                 )
                             })}
                         </div>

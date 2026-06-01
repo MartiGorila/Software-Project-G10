@@ -43,6 +43,11 @@ export default function CreatePanel({
         setError('')
         try {
             const tag_ids = [...selectedTagIds]
+            const normalizedBudget = budget.trim() === '' ? 0 : parseFloat(budget)
+            if (!Number.isFinite(normalizedBudget) || normalizedBudget < 0) {
+                throw new Error('Budget must be a non-negative number')
+            }
+
             if (type === 'event') {
                 if (!eventTime) throw new Error('Event time is required')
                 const event = await createEvent({
@@ -52,7 +57,7 @@ export default function CreatePanel({
                     lng: position[1],
                     event_time: new Date(eventTime).toISOString(),
                     capacity: capacity ? parseInt(capacity) : undefined,
-                    budget: budget ? parseFloat(budget) : undefined,
+                    budget: normalizedBudget,
                     tag_ids,
                 })
                 onEventCreated(event)
@@ -62,7 +67,7 @@ export default function CreatePanel({
                     description: description.trim() || undefined,
                     lat: position[0],
                     lng: position[1],
-                    budget: budget ? parseFloat(budget) : undefined,
+                    budget: normalizedBudget,
                     tag_ids,
                 })
                 onPlanCreated(plan)
@@ -154,7 +159,7 @@ export default function CreatePanel({
                 )}
 
                 <div className="create-panel__field">
-                    <label className="create-panel__label">Budget (€)</label>
+                    <label className="create-panel__label">Budget (€) *</label>
                     <input
                         className="create-panel__input"
                         type="number"
@@ -162,8 +167,9 @@ export default function CreatePanel({
                         step="0.01"
                         value={budget}
                         onChange={(e) => setBudget(e.target.value)}
-                        placeholder="Optional"
+                        placeholder="0 for free"
                     />
+                    <span className="create-panel__hint">Leave blank to mark it as free.</span>
                 </div>
 
                 {availableTags.length > 0 && (
