@@ -1764,6 +1764,19 @@
     margin-bottom: 0.6rem;
 }
 
+.filter-panel__type-row--relevance {
+    margin-bottom: 0.45rem;
+}
+
+.filter-panel__section-label {
+    margin: 0 0 0.35rem;
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .filter-panel__type-btn {
     flex: 1;
     border: 1px solid #e2e8f0;
@@ -1779,6 +1792,12 @@
 
 .filter-panel__type-btn:hover {
     background: #f1f5f9;
+}
+
+.filter-panel__type-btn:disabled {
+    background: #f1f5f9;
+    color: #cbd5e1;
+    cursor: not-allowed;
 }
 
 .filter-panel__type-btn--active {

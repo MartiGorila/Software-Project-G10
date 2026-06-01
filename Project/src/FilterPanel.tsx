@@ -1,5 +1,7 @@
 import { Tag } from './api'
 
+export type RelevanceFilter = 'all' | 'mine' | 'friends'
+
 type Props = {
     tags: Tag[]
     selectedTagIds: Set<number>
@@ -7,6 +9,9 @@ type Props = {
     onClear: () => void
     filterType: 'all' | 'events' | 'plans'
     onFilterType: (type: 'all' | 'events' | 'plans') => void
+    relevanceFilter: RelevanceFilter
+    onRelevanceFilter: (filter: RelevanceFilter) => void
+    isLoggedIn: boolean
 }
 
 export default function FilterPanel({
@@ -16,12 +21,17 @@ export default function FilterPanel({
     onClear,
     filterType,
     onFilterType,
+    relevanceFilter,
+    onRelevanceFilter,
+    isLoggedIn,
 }: Props) {
+    const hasActiveFilters = selectedTagIds.size > 0 || filterType !== 'all' || relevanceFilter !== 'all'
+
     return (
         <div className="filter-panel">
             <div className="filter-panel__header">
                 <span className="filter-panel__title">🔍 Filter</span>
-                {(selectedTagIds.size > 0 || filterType !== 'all') && (
+                {hasActiveFilters && (
                     <button className="filter-panel__clear" onClick={onClear}>
                         Clear all
                     </button>
@@ -40,6 +50,33 @@ export default function FilterPanel({
                     </button>
                 ))}
             </div>
+
+            <div className="filter-panel__section-label">Relevance</div>
+            <div className="filter-panel__type-row filter-panel__type-row--relevance">
+                {([
+                    ['all', 'All'],
+                    ['mine', 'Mine'],
+                    ['friends', 'Friends'],
+                ] as const).map(([value, label]) => {
+                    const disabled = !isLoggedIn && value !== 'all'
+                    return (
+                        <button
+                            key={value}
+                            className={`filter-panel__type-btn ${relevanceFilter === value ? 'filter-panel__type-btn--active' : ''}`}
+                            onClick={() => onRelevanceFilter(value)}
+                            disabled={disabled}
+                            title={disabled ? 'Log in to use this discovery filter.' : undefined}
+                        >
+                            {label}
+                        </button>
+                    )
+                })}
+            </div>
+            {!isLoggedIn && (
+                <div className="filter-panel__hint">
+                    Log in to use Mine and Friends discovery filters.
+                </div>
+            )}
 
             {/* Tag filter */}
             {tags.length > 0 && (
