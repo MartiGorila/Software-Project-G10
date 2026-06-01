@@ -10,6 +10,9 @@
 # Usage from the repository root:
 #   API_BASE=http://localhost:3000 bash backend/scripts/seed_demo_data.sh
 #
+# Optional:
+#   DEMO_PASSWORD='your-demo-password' API_BASE=http://localhost:3000 bash backend/scripts/seed_demo_data.sh
+#
 # Requirements:
 #   - backend running and connected to the intended Supabase project
 #   - curl, jq, and node available locally
@@ -21,6 +24,23 @@ PASSWORD="${DEMO_PASSWORD:-DemoPass123!}"
 TMP_DIR="$(mktemp -d)"
 RESPONSE_FILE="$TMP_DIR/response.json"
 STATUS_FILE="$TMP_DIR/status.txt"
+
+USERS_ATTEMPTED=0
+USERS_CREATED=0
+USERS_REUSED=0
+TAGS_ATTEMPTED=0
+TAGS_CREATED=0
+TAGS_REUSED=0
+EVENTS_ATTEMPTED=0
+EVENTS_CREATED=0
+EVENTS_SKIPPED=0
+PLANS_ATTEMPTED=0
+PLANS_CREATED=0
+PLANS_SKIPPED=0
+JOINS_ATTEMPTED=0
+FRIENDS_ATTEMPTED=0
+
+EVENT_IDS=()
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -67,23 +87,47 @@ future_iso() {
   node -e "const d = new Date(Date.now() + Number(process.argv[1]) * 86400000); d.setHours(Number(process.argv[2]), 0, 0, 0); console.log(d.toISOString());" "$days" "$hour"
 }
 
+json_number_array() {
+  printf '%s\n' "$@" | jq -R . | jq -s 'map(select(length > 0) | tonumber)'
+}
+
+token_for() {
+  local key="$1"
+  eval "printf '%s' \"\$${key}_TOKEN\""
+}
+
+id_for() {
+  local key="$1"
+  eval "printf '%s' \"\$${key}_ID\""
+}
+
+tag_for() {
+  local key="$1"
+  eval "printf '%s' \"\$TAG_${key}\""
+}
+
 ensure_user() {
   local key="$1"
   local username="$2"
   local email="$3"
+  USERS_ATTEMPTED=$((USERS_ATTEMPTED + 1))
 
   local body
   body="$(jq -n --arg username "$username" --arg email "$email" --arg password "$PASSWORD" \
     '{username: $username, email: $email, password: $password}')"
 
   api_request POST /auth/register "" "$body"
-  if [ "$(status_code)" = "409" ]; then
-    api_request POST /auth/login "" "$(jq -n --arg email "$email" --arg password "$PASSWORD" \
-      '{email: $email, password: $password}')"
-  fi
-
   local status
   status="$(status_code)"
+  if [ "$status" = "201" ]; then
+    USERS_CREATED=$((USERS_CREATED + 1))
+  elif [ "$status" = "409" ]; then
+    USERS_REUSED=$((USERS_REUSED + 1))
+    api_request POST /auth/login "" "$(jq -n --arg email "$email" --arg password "$PASSWORD" \
+      '{email: $email, password: $password}')"
+    status="$(status_code)"
+  fi
+
   if [ "$status" != "200" ] && [ "$status" != "201" ]; then
     echo "Failed to create/login demo user $email. HTTP $status" >&2
     cat "$RESPONSE_FILE" >&2
@@ -95,19 +139,24 @@ ensure_user() {
 }
 
 ensure_tag() {
-  local var_name="$1"
+  local key="$1"
   local tag_name="$2"
+  TAGS_ATTEMPTED=$((TAGS_ATTEMPTED + 1))
 
   api_request POST /tags "$ALBA_TOKEN" "$(jq -n --arg name "$tag_name" '{name: $name}')"
   local status
   status="$(status_code)"
-  if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+  if [ "$status" = "201" ]; then
+    TAGS_CREATED=$((TAGS_CREATED + 1))
+  elif [ "$status" = "200" ]; then
+    TAGS_REUSED=$((TAGS_REUSED + 1))
+  else
     echo "Failed to create demo tag $tag_name. HTTP $status" >&2
     cat "$RESPONSE_FILE" >&2
     exit 1
   fi
 
-  eval "${var_name}='$(jq -r '.id' "$RESPONSE_FILE")'"
+  eval "TAG_${key}='$(jq -r '.id' "$RESPONSE_FILE")'"
 }
 
 existing_event_id_by_name() {
@@ -123,29 +172,30 @@ existing_plan_id_by_name() {
 }
 
 ensure_event() {
-  local var_name="$1"
-  local token="$2"
-  local name="$3"
-  local description="$4"
-  local lat="$5"
-  local lng="$6"
-  local days="$7"
-  local hour="$8"
-  local budget="$9"
-  local capacity="${10}"
-  shift 10
+  local token="$1"
+  local name="$2"
+  local description="$3"
+  local lat="$4"
+  local lng="$5"
+  local days="$6"
+  local hour="$7"
+  local budget="$8"
+  local capacity="$9"
+  shift 9
   local tag_ids=("$@")
+  EVENTS_ATTEMPTED=$((EVENTS_ATTEMPTED + 1))
 
   local existing_id
   existing_id="$(existing_event_id_by_name "$name")"
   if [ -n "$existing_id" ]; then
-    eval "${var_name}='$existing_id'"
+    EVENTS_SKIPPED=$((EVENTS_SKIPPED + 1))
+    EVENT_IDS+=("$existing_id")
     echo "Event already exists: $name"
     return
   fi
 
   local tag_json
-  tag_json="$(printf '%s\n' "${tag_ids[@]}" | jq -R . | jq -s 'map(tonumber)')"
+  tag_json="$(json_number_array "${tag_ids[@]}")"
 
   local body
   body="$(jq -n \
@@ -165,30 +215,32 @@ ensure_event() {
     cat "$RESPONSE_FILE" >&2
     exit 1
   fi
-  eval "${var_name}='$(jq -r '.id' "$RESPONSE_FILE")'"
+
+  EVENTS_CREATED=$((EVENTS_CREATED + 1))
+  EVENT_IDS+=("$(jq -r '.id' "$RESPONSE_FILE")")
 }
 
 ensure_plan() {
-  local var_name="$1"
-  local token="$2"
-  local name="$3"
-  local description="$4"
-  local lat="$5"
-  local lng="$6"
-  local budget="$7"
-  shift 7
+  local token="$1"
+  local name="$2"
+  local description="$3"
+  local lat="$4"
+  local lng="$5"
+  local budget="$6"
+  shift 6
   local tag_ids=("$@")
+  PLANS_ATTEMPTED=$((PLANS_ATTEMPTED + 1))
 
   local existing_id
   existing_id="$(existing_plan_id_by_name "$name")"
   if [ -n "$existing_id" ]; then
-    eval "${var_name}='$existing_id'"
+    PLANS_SKIPPED=$((PLANS_SKIPPED + 1))
     echo "Plan already exists: $name"
     return
   fi
 
   local tag_json
-  tag_json="$(printf '%s\n' "${tag_ids[@]}" | jq -R . | jq -s 'map(tonumber)')"
+  tag_json="$(json_number_array "${tag_ids[@]}")"
 
   local body
   body="$(jq -n \
@@ -206,12 +258,14 @@ ensure_plan() {
     cat "$RESPONSE_FILE" >&2
     exit 1
   fi
-  eval "${var_name}='$(jq -r '.id' "$RESPONSE_FILE")'"
+
+  PLANS_CREATED=$((PLANS_CREATED + 1))
 }
 
 join_event_if_possible() {
   local token="$1"
   local event_id="$2"
+  JOINS_ATTEMPTED=$((JOINS_ATTEMPTED + 1))
   api_request POST "/events/$event_id/join" "$token" ""
   local status
   status="$(status_code)"
@@ -224,6 +278,7 @@ join_event_if_possible() {
 add_friend_if_possible() {
   local token="$1"
   local friend_id="$2"
+  FRIENDS_ATTEMPTED=$((FRIENDS_ATTEMPTED + 1))
   api_request POST "/users/me/friends/$friend_id" "$token" ""
   local status
   status="$(status_code)"
@@ -235,69 +290,170 @@ add_friend_if_possible() {
 
 echo "Seeding demo data through $API_BASE"
 
-ensure_user ALBA "demo-alba" "demo-alba@example.com"
-ensure_user MARC "demo-marc" "demo-marc@example.com"
-ensure_user NORA "demo-nora" "demo-nora@example.com"
-ensure_user LEO "demo-leo" "demo-leo@example.com"
+USERS=(
+  "ALBA|demo-alba|demo-alba@example.com"
+  "MARC|demo-marc|demo-marc@example.com"
+  "NORA|demo-nora|demo-nora@example.com"
+  "LEO|demo-leo|demo-leo@example.com"
+  "IRIS|demo-iris|demo-iris@example.com"
+  "PAU|demo-pau|demo-pau@example.com"
+  "MARTA|demo-marta|demo-marta@example.com"
+  "JAN|demo-jan|demo-jan@example.com"
+  "CLARA|demo-clara|demo-clara@example.com"
+  "OT|demo-ot|demo-ot@example.com"
+)
 
-ensure_tag CULTURE "culture"
-ensure_tag FOOD "food"
-ensure_tag OUTDOORS "outdoors"
-ensure_tag MUSIC "music"
-ensure_tag STUDY "study"
-ensure_tag BUDGET "budget-friendly"
+for user_record in "${USERS[@]}"; do
+  IFS='|' read -r key username email <<< "$user_record"
+  ensure_user "$key" "$username" "$email"
+done
 
-ensure_event E_CONCERT "$ALBA_TOKEN" \
-  "Demo: Sunset Indie Concert at Parc de la Ciutadella" \
-  "A relaxed outdoor concert with local bands, picnic blankets, and late afternoon sun." \
-  41.3880 2.1874 3 19 12 30 "$MUSIC" "$OUTDOORS" "$BUDGET"
+TAGS=(
+  "CULTURE|culture"
+  "FOOD|food"
+  "OUTDOORS|outdoors"
+  "MUSIC|music"
+  "SPORTS|sports"
+  "STUDY|study"
+  "BUDGET|budget-friendly"
+  "NIGHTLIFE|nightlife"
+  "WELLNESS|wellness"
+)
 
-ensure_event E_TAPAS "$MARC_TOKEN" \
-  "Demo: Gothic Quarter Tapas Walk" \
-  "Small-group tapas crawl through classic bars near Plaça Reial and hidden side streets." \
-  41.3801 2.1754 4 20 24 12 "$FOOD" "$CULTURE"
+for tag_record in "${TAGS[@]}"; do
+  IFS='|' read -r key name <<< "$tag_record"
+  ensure_tag "$key" "$name"
+done
 
-ensure_event E_STUDY "$NORA_TOKEN" \
-  "Demo: Morning Study Sprint at UPF Library" \
-  "Focused two-hour study session for project work, followed by coffee nearby." \
-  41.3869 2.1744 2 10 4 10 "$STUDY" "$BUDGET"
+NEIGHBORHOODS=(
+  "Gràcia|41.4036|2.1570"
+  "El Born|41.3846|2.1819"
+  "Eixample|41.3925|2.1649"
+  "Barceloneta|41.3800|2.1896"
+  "Poblenou|41.4020|2.2035"
+  "Montjuïc|41.3688|2.1590"
+  "Gothic Quarter|41.3839|2.1763"
+  "Sant Antoni|41.3785|2.1620"
+  "Sagrada Família|41.4036|2.1744"
+  "Sarrià|41.3996|2.1211"
+)
 
-ensure_event E_JAZZ "$LEO_TOKEN" \
-  "Demo: Small Jazz Night in El Born" \
-  "Cozy live jazz set in a tiny venue, good for a low-key evening plan." \
-  41.3847 2.1816 5 21 18 20 "$MUSIC" "$CULTURE"
+USER_KEYS=(ALBA MARC NORA LEO IRIS PAU MARTA JAN CLARA OT)
+EVENT_DAY_BASES=(2 3 4 5 6)
+EVENT_HOURS=(10 13 17 19 21)
 
-ensure_plan P_BUNKERS "$ALBA_TOKEN" \
-  "Demo: Bunkers del Carmel Viewpoint Picnic" \
-  "Pick up snacks and head to one of Barcelona's best skyline viewpoints." \
-  41.4196 2.1619 9 "$OUTDOORS" "$BUDGET"
+EVENT_TEMPLATES=(
+  "Weekend Brunch Meetup|A relaxed table for students and friends to try local favorites and plan the weekend.|FOOD|BUDGET"
+  "Open-Air Culture Walk|A guided neighborhood stroll through small plazas, stories, and architecture highlights.|CULTURE|OUTDOORS"
+  "Local Live Music Session|A casual evening with local performers, affordable drinks, and an easy social vibe.|MUSIC|NIGHTLIFE"
+  "Study Sprint and Coffee|A focused work block followed by coffee and project chat with other students.|STUDY|BUDGET"
+  "Sunset Fitness Meetup|A friendly outdoor movement session with stretching, light cardio, and city views.|SPORTS|WELLNESS|OUTDOORS"
+)
 
-ensure_plan P_MARKET "$MARC_TOKEN" \
-  "Demo: Boqueria Market Lunch Route" \
-  "Browse market stalls, grab fruit juice, and build an affordable lunch around La Rambla." \
-  41.3817 2.1716 16 "$FOOD" "$CULTURE"
+PLAN_TEMPLATES=(
+  "Coffee and Notebook Route|Start with a good coffee, find a quiet table, and explore nearby side streets afterward.|STUDY|BUDGET"
+  "Tapas Tasting Loop|Build a flexible food route with two or three stops and plenty of local atmosphere.|FOOD|CULTURE"
+  "Photo Walk Afternoon|A self-guided route for street photos, landmarks, and hidden corners.|CULTURE|OUTDOORS"
+  "Low-Cost Chill Plan|A budget-friendly plan with walking, snacks, and an easy place to sit outside.|BUDGET|OUTDOORS"
+  "Evening Social Route|A simple evening route with music, lights, and a few lively streets to explore.|NIGHTLIFE|MUSIC"
+)
 
-ensure_plan P_BEACH "$NORA_TOKEN" \
-  "Demo: Barceloneta Beach Reset" \
-  "A simple seaside walk with optional coffee and time to unwind after classes." \
-  41.3784 2.1925 6 "$OUTDOORS" "$BUDGET"
+event_index=0
+for neighborhood_record in "${NEIGHBORHOODS[@]}"; do
+  IFS='|' read -r neighborhood base_lat base_lng <<< "$neighborhood_record"
+  template_index=0
+  for template in "${EVENT_TEMPLATES[@]}"; do
+    IFS='|' read -r title description tag_a tag_b tag_c <<< "$template"
+    user_key="${USER_KEYS[$((event_index % ${#USER_KEYS[@]}))]}"
+    token="$(token_for "$user_key")"
+    lat="$(node -e "console.log((Number(process.argv[1]) + Number(process.argv[2]) * 0.0011).toFixed(6))" "$base_lat" "$template_index")"
+    lng="$(node -e "console.log((Number(process.argv[1]) + Number(process.argv[2]) * 0.0013).toFixed(6))" "$base_lng" "$template_index")"
+    budget=$((6 + (event_index * 5) % 35))
+    capacity=$((10 + (event_index % 5) * 5))
+    day_offset=$((EVENT_DAY_BASES[$template_index] + event_index / 5))
+    hour="${EVENT_HOURS[$template_index]}"
+    name="Demo: $neighborhood $title"
 
-ensure_plan P_MUSEUM "$LEO_TOKEN" \
-  "Demo: MACBA Afternoon Culture Stop" \
-  "Short contemporary art visit followed by people-watching around Plaça dels Àngels." \
-  41.3830 2.1660 14 "$CULTURE"
+    tag_ids=("$(tag_for "$tag_a")" "$(tag_for "$tag_b")")
+    if [ -n "${tag_c:-}" ]; then
+      tag_ids+=("$(tag_for "$tag_c")")
+    fi
 
-join_event_if_possible "$MARC_TOKEN" "$E_CONCERT"
-join_event_if_possible "$NORA_TOKEN" "$E_CONCERT"
-join_event_if_possible "$ALBA_TOKEN" "$E_TAPAS"
-join_event_if_possible "$LEO_TOKEN" "$E_TAPAS"
-join_event_if_possible "$MARC_TOKEN" "$E_STUDY"
-join_event_if_possible "$ALBA_TOKEN" "$E_JAZZ"
+    ensure_event "$token" "$name" "$description" "$lat" "$lng" "$day_offset" "$hour" "$budget" "$capacity" "${tag_ids[@]}"
+    event_index=$((event_index + 1))
+    template_index=$((template_index + 1))
+  done
+done
 
-add_friend_if_possible "$ALBA_TOKEN" "$MARC_ID"
-add_friend_if_possible "$ALBA_TOKEN" "$NORA_ID"
-add_friend_if_possible "$MARC_TOKEN" "$LEO_ID"
+plan_index=0
+for neighborhood_record in "${NEIGHBORHOODS[@]}"; do
+  IFS='|' read -r neighborhood base_lat base_lng <<< "$neighborhood_record"
+  template_index=0
+  for template in "${PLAN_TEMPLATES[@]}"; do
+    IFS='|' read -r title description tag_a tag_b tag_c <<< "$template"
+    user_key="${USER_KEYS[$(((plan_index + 3) % ${#USER_KEYS[@]}))]}"
+    token="$(token_for "$user_key")"
+    lat="$(node -e "console.log((Number(process.argv[1]) - Number(process.argv[2]) * 0.0009).toFixed(6))" "$base_lat" "$template_index")"
+    lng="$(node -e "console.log((Number(process.argv[1]) + Number(process.argv[2]) * 0.0010).toFixed(6))" "$base_lng" "$template_index")"
+    budget=$((4 + (plan_index * 4) % 30))
+    name="Demo: $neighborhood $title"
 
+    tag_ids=("$(tag_for "$tag_a")" "$(tag_for "$tag_b")")
+    if [ -n "${tag_c:-}" ]; then
+      tag_ids+=("$(tag_for "$tag_c")")
+    fi
+
+    ensure_plan "$token" "$name" "$description" "$lat" "$lng" "$budget" "${tag_ids[@]}"
+    plan_index=$((plan_index + 1))
+    template_index=$((template_index + 1))
+  done
+done
+
+if [ "${#EVENT_IDS[@]}" -gt 0 ]; then
+  for index in "${!EVENT_IDS[@]}"; do
+    event_id="${EVENT_IDS[$index]}"
+    joiner_a="${USER_KEYS[$(((index + 1) % ${#USER_KEYS[@]}))]}"
+    joiner_b="${USER_KEYS[$(((index + 4) % ${#USER_KEYS[@]}))]}"
+    joiner_c="${USER_KEYS[$(((index + 7) % ${#USER_KEYS[@]}))]}"
+    join_event_if_possible "$(token_for "$joiner_a")" "$event_id"
+    join_event_if_possible "$(token_for "$joiner_b")" "$event_id"
+    if [ $((index % 2)) -eq 0 ]; then
+      join_event_if_possible "$(token_for "$joiner_c")" "$event_id"
+    fi
+  done
+fi
+
+FRIEND_PAIRS=(
+  "ALBA|MARC"
+  "ALBA|NORA"
+  "MARC|LEO"
+  "NORA|IRIS"
+  "IRIS|PAU"
+  "PAU|MARTA"
+  "MARTA|JAN"
+  "JAN|CLARA"
+  "CLARA|OT"
+  "OT|ALBA"
+  "LEO|MARTA"
+  "MARC|PAU"
+)
+
+for pair in "${FRIEND_PAIRS[@]}"; do
+  IFS='|' read -r user_key friend_key <<< "$pair"
+  add_friend_if_possible "$(token_for "$user_key")" "$(id_for "$friend_key")"
+done
+
+echo
 echo "Demo data seed complete."
-echo "Users: demo-alba, demo-marc, demo-nora, demo-leo"
-echo "Password for all demo users: $PASSWORD"
+echo "Users attempted: $USERS_ATTEMPTED (created: $USERS_CREATED, reused: $USERS_REUSED)"
+echo "Tags attempted: $TAGS_ATTEMPTED (created: $TAGS_CREATED, reused: $TAGS_REUSED)"
+echo "Events attempted: $EVENTS_ATTEMPTED (created: $EVENTS_CREATED, skipped existing: $EVENTS_SKIPPED)"
+echo "Plans attempted: $PLANS_ATTEMPTED (created: $PLANS_CREATED, skipped existing: $PLANS_SKIPPED)"
+echo "Event joins attempted: $JOINS_ATTEMPTED"
+echo "Friendship attempts: $FRIENDS_ATTEMPTED"
+echo
+echo "Demo login credentials:"
+for user_record in "${USERS[@]}"; do
+  IFS='|' read -r _ username email <<< "$user_record"
+  echo "  $username / $email / $PASSWORD"
+done
