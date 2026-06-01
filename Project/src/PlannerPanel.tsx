@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ApiEvent, ApiPlan, Tag } from './api'
 import { getCategoryIcon, getVisibleTags } from './categoryIcons'
+import type { SavedRouteDraft } from './savedContent'
 
 type PlannerType = 'both' | 'events' | 'plans'
 type PlanLength = 'quick' | 'half-day' | 'full-day'
@@ -33,6 +34,8 @@ type PlannerPanelProps = {
     onClose: () => void
     onOpenEventDetails: (eventId: string) => void
     onCenterOnMap: (position: [number, number]) => void
+    isLoggedIn: boolean
+    onSaveRoute: (route: SavedRouteDraft) => { saved: boolean; message: string }
 }
 
 const EARTH_RADIUS_KM = 6371
@@ -74,6 +77,15 @@ function formatEventClock(iso: string) {
     return new Date(iso).toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
+    })
+}
+
+function formatRouteDate(dateKey: string) {
+    const [year, month, day] = dateKey.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
     })
 }
 
@@ -137,6 +149,16 @@ function eventTimeMs(item: PlannerItem) {
     if (item.type !== 'event' || !item.eventTime) return null
     const time = new Date(item.eventTime).getTime()
     return Number.isFinite(time) ? time : null
+}
+
+function eventDateKey(item: PlannerItem) {
+    if (item.type !== 'event' || !item.eventTime) return null
+    const date = new Date(item.eventTime)
+    if (!Number.isFinite(date.getTime())) return null
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
 }
 
 function withUniqueReason(item: PlannerItem, reason: string): PlannerItem {
@@ -305,6 +327,27 @@ function buildRoute(
     )
 }
 
+function chooseBestEventDate(candidates: PlannerItem[]) {
+    const groups = new Map<string, PlannerItem[]>()
+    candidates.forEach((item) => {
+        const dateKey = eventDateKey(item)
+        if (!dateKey) return
+        groups.set(dateKey, [...(groups.get(dateKey) ?? []), item])
+    })
+
+    return [...groups.entries()]
+        .map(([dateKey, items]) => ({
+            dateKey,
+            items,
+            totalScore: items.reduce((sum, item) => sum + item.score, 0),
+        }))
+        .sort((a, b) => {
+            if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore
+            if (b.items.length !== a.items.length) return b.items.length - a.items.length
+            return a.dateKey.localeCompare(b.dateKey)
+        })[0] ?? null
+}
+
 export default function PlannerPanel({
     events,
     plans,
@@ -313,19 +356,22 @@ export default function PlannerPanel({
     onClose,
     onOpenEventDetails,
     onCenterOnMap,
+    isLoggedIn,
+    onSaveRoute,
 }: PlannerPanelProps) {
     const [radiusKm, setRadiusKm] = useState('10')
     const [budgetMax, setBudgetMax] = useState('')
     const [typeMix, setTypeMix] = useState<PlannerType>('both')
     const [planLength, setPlanLength] = useState<PlanLength>('quick')
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
+    const [saveMessage, setSaveMessage] = useState('')
 
     const parsedRadius = Number(radiusKm)
     const safeRadius = Number.isFinite(parsedRadius) && parsedRadius > 0 ? parsedRadius : 10
     const parsedBudget = budgetMax.trim() === '' ? null : Number(budgetMax)
     const safeBudgetMax = parsedBudget !== null && Number.isFinite(parsedBudget) && parsedBudget >= 0 ? parsedBudget : null
 
-    const route = useMemo(() => {
+    const routeResult = useMemo(() => {
         const selectedTags = selectedTagIds
         const normalized: PlannerItem[] = [
             ...(typeMix === 'plans' ? [] : events.filter(hasValidCoordinates).map((event) => {
@@ -367,9 +413,18 @@ export default function PlannerPanel({
                 return [...selectedTags].every((tagId) => itemTagIds.has(tagId))
             })
 
-        return buildRoute(candidates, mapCenter, lengthToStops[planLength], safeBudgetMax)
+        const bestEventDate = typeMix === 'plans' ? null : chooseBestEventDate(candidates)
+        const sameDayCandidates = bestEventDate
+            ? candidates.filter((item) => item.type === 'plan' || eventDateKey(item) === bestEventDate.dateKey)
+            : candidates
+
+        return {
+            route: buildRoute(sameDayCandidates, mapCenter, lengthToStops[planLength], safeBudgetMax),
+            routeDateLabel: bestEventDate ? formatRouteDate(bestEventDate.dateKey) : '',
+        }
     }, [events, mapCenter, planLength, plans, safeBudgetMax, safeRadius, selectedTagIds, typeMix])
 
+    const { route, routeDateLabel } = routeResult
     const knownBudget = route.reduce((total, stop) => total + (stop.budget ?? 0), 0)
     const hasUnknownBudget = route.some((stop) => stop.budget === null)
     const totalDistance = route.reduce((total, stop) => total + stop.legDistance, 0)
@@ -380,6 +435,34 @@ export default function PlannerPanel({
             next.has(tagId) ? next.delete(tagId) : next.add(tagId)
             return next
         })
+    }
+
+    const handleSaveRoute = () => {
+        if (route.length === 0) return
+        const result = onSaveRoute({
+            title: routeDateLabel ? `Planner route for ${routeDateLabel}` : 'Planner route',
+            mapCenter,
+            summary: {
+                stops: route.length,
+                knownBudget,
+                hasUnknownBudget,
+                totalDistance,
+            },
+            stops: route.map((stop) => ({
+                type: stop.type,
+                id: stop.id,
+                name: stop.name,
+                description: stop.description,
+                lat: stop.lat,
+                lng: stop.lng,
+                budget: stop.budget,
+                tags: stop.tags,
+                eventTime: stop.eventTime,
+                reasons: stop.reasons,
+                stopNumber: stop.stopNumber,
+            })),
+        })
+        setSaveMessage(result.message)
     }
 
     return (
@@ -469,6 +552,19 @@ export default function PlannerPanel({
                             <strong>{totalDistance.toFixed(1)}km</strong>
                             <span>route distance</span>
                         </div>
+                    </div>
+
+                    <div className="planner-save-row">
+                        {routeDateLabel && <span>Built around {routeDateLabel}</span>}
+                        <button
+                            type="button"
+                            className="planner-action planner-action--save"
+                            onClick={handleSaveRoute}
+                            disabled={!isLoggedIn || route.length === 0}
+                        >
+                            {isLoggedIn ? 'Save route' : 'Log in to save'}
+                        </button>
+                        {saveMessage && <span className="planner-save-row__message">{saveMessage}</span>}
                     </div>
 
                     <div className="planner-route">

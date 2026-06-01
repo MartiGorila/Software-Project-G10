@@ -15,6 +15,9 @@ type ExplorePanelProps = {
     onClose: () => void
     onSelectEvent: (eventId: string) => void
     onSelectPlan: (position: [number, number]) => void
+    isLoggedIn: boolean
+    savedPlanIds: Set<string>
+    onSavePlan: (plan: ApiPlan) => { saved: boolean; message: string }
 }
 
 const EARTH_RADIUS_KM = 6371
@@ -62,11 +65,15 @@ export default function ExplorePanel({
     onClose,
     onSelectEvent,
     onSelectPlan,
+    isLoggedIn,
+    savedPlanIds,
+    onSavePlan,
 }: ExplorePanelProps) {
     const [query, setQuery] = useState('')
     const [typeFilter, setTypeFilter] = useState<'all' | 'events' | 'plans'>('all')
     const [radiusKm, setRadiusKm] = useState(10)
     const [selectedItem, setSelectedItem] = useState<ExploreItem | null>(null)
+    const [saveMessage, setSaveMessage] = useState('')
 
     const activeTags = useMemo(
         () => tags.filter((tag) => selectedTagIds.has(tag.id)),
@@ -118,7 +125,10 @@ export default function ExplorePanel({
 
                 {selectedItem ? (
                     <div className="explore-detail">
-                        <button type="button" className="explore-detail__back" onClick={() => setSelectedItem(null)}>
+                        <button type="button" className="explore-detail__back" onClick={() => {
+                            setSaveMessage('')
+                            setSelectedItem(null)
+                        }}>
                             ← Back to results
                         </button>
                         <div className="explore-detail__card">
@@ -157,18 +167,36 @@ export default function ExplorePanel({
                                         Open full event details
                                     </button>
                                 ) : (
-                                    <button
-                                        type="button"
-                                        className="explore-detail__primary"
-                                        onClick={() => {
-                                            onSelectPlan([selectedItem.item.lat, selectedItem.item.lng])
-                                            onClose()
-                                        }}
-                                    >
-                                        Center on map
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="explore-detail__primary"
+                                            onClick={() => {
+                                                onSelectPlan([selectedItem.item.lat, selectedItem.item.lng])
+                                                onClose()
+                                            }}
+                                        >
+                                            Center on map
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="explore-detail__secondary"
+                                            onClick={() => {
+                                                const result = onSavePlan(selectedItem.item)
+                                                setSaveMessage(result.message)
+                                            }}
+                                            disabled={!isLoggedIn || savedPlanIds.has(selectedItem.item.id)}
+                                        >
+                                            {!isLoggedIn
+                                                ? 'Log in to save'
+                                                : savedPlanIds.has(selectedItem.item.id)
+                                                    ? 'Plan saved'
+                                                    : 'Save plan'}
+                                        </button>
+                                    </>
                                 )}
                             </div>
+                            {saveMessage && <div className="explore-detail__message">{saveMessage}</div>}
                         </div>
                     </div>
                 ) : (
@@ -232,10 +260,13 @@ export default function ExplorePanel({
                                 return (
                                     <button
                                         key={`${result.type}-${result.item.id}`}
-                                        type="button"
-                                        className="explore-card"
-                                        onClick={() => setSelectedItem(result)}
-                                    >
+                                    type="button"
+                                    className="explore-card"
+                                    onClick={() => {
+                                        setSaveMessage('')
+                                        setSelectedItem(result)
+                                    }}
+                                >
                                         <div className="explore-card__topline">
                                             <span className={`explore-card__badge explore-card__badge--${result.type}`}>
                                                 <span className="explore-card__icon" aria-hidden="true">

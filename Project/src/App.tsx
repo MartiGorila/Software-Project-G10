@@ -13,6 +13,18 @@ import TopBar from './TopBar'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
+import SavedContentPanel from './SavedContentPanel'
+import {
+    addSavedPlan,
+    addSavedRoute,
+    emptySavedContent,
+    loadSavedContent,
+    persistSavedContent,
+    removeSavedPlan,
+    removeSavedRoute,
+    SavedContentState,
+    SavedRouteDraft,
+} from './savedContent'
 import {
     getAuthToken,
     getCurrentUser,
@@ -105,7 +117,13 @@ function App() {
     const [viewingUserId, setViewingUserId] = useState<string | null>(null)
     const [showExplore, setShowExplore] = useState(false)
     const [showPlanner, setShowPlanner] = useState(false)
+    const [showSavedContent, setShowSavedContent] = useState(false)
+    const [savedContent, setSavedContent] = useState<SavedContentState>(emptySavedContent)
     const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends])
+    const savedPlanIds = useMemo(
+        () => new Set(savedContent.plans.map((plan) => plan.id)),
+        [savedContent.plans],
+    )
 
     // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -162,6 +180,7 @@ function App() {
                     try {
                         const user = await getCurrentUser()
                         setCurrentUser(user)
+                        setSavedContent(loadSavedContent(user.id))
                         await refreshFriends()
                         const joined = new Set(
                             eventsData
@@ -207,6 +226,7 @@ function App() {
         try {
             const data = await login(loginForm.email.trim(), loginForm.password)
             setCurrentUser(data.user)
+            setSavedContent(loadSavedContent(data.user.id))
             setShowLoginForm(false)
             setLoginForm({ email: '', password: '' })
             await refreshData(data.user)
@@ -226,6 +246,7 @@ function App() {
                 registerForm.password,
             )
             setCurrentUser(data.user)
+            setSavedContent(loadSavedContent(data.user.id))
             setShowLoginForm(false)
             setRegisterForm({ username: '', email: '', password: '' })
             setAuthMode('login')
@@ -245,7 +266,9 @@ function App() {
         setShowLoginForm(false)
         setLoginError('')
         setShowOwnProfile(false)
+        setShowSavedContent(false)
         setViewingUserId(null)
+        setSavedContent(emptySavedContent)
     }
 
     // ── Join / Leave ──────────────────────────────────────────────────────────
@@ -329,6 +352,40 @@ function App() {
     const handleCenterOnMap = (position: [number, number]) => {
         setSuggestionFocus(position)
     }
+
+    // ── Saved content ────────────────────────────────────────────────────────
+
+    const setAndPersistSavedContent = (next: SavedContentState) => {
+        if (!currentUser) return
+        setSavedContent(next)
+        persistSavedContent(currentUser.id, next)
+    }
+
+    const handleSavePlan = (plan: ApiPlan) => {
+        if (!currentUser) return { saved: false, message: 'Log in to save plans.' }
+
+        const result = addSavedPlan(savedContent, plan)
+        setAndPersistSavedContent(result.state)
+
+        return {
+            saved: !result.duplicate,
+            message: result.duplicate ? 'Plan already saved.' : 'Plan saved.',
+        }
+    }
+
+    const handleSaveRoute = (route: SavedRouteDraft) => {
+        if (!currentUser) return { saved: false, message: 'Log in to save routes.' }
+        setAndPersistSavedContent(addSavedRoute(savedContent, route))
+        return { saved: true, message: 'Route saved.' }
+    }
+
+    const handleRemoveSavedPlan = (planId: string) => {
+        setAndPersistSavedContent(removeSavedPlan(savedContent, planId))
+    }
+
+    const handleRemoveSavedRoute = (routeId: string) => {
+        setAndPersistSavedContent(removeSavedRoute(savedContent, routeId))
+    }
     // ── Filter actions ────────────────────────────────────────────────────────
 
     const handleToggleTag = (tagId: number) => {
@@ -367,6 +424,7 @@ function App() {
                 onOpenExplore={() => setShowExplore(true)}
                 onOpenPlanner={() => setShowPlanner(true)}
                 onOpenProfile={() => setShowOwnProfile(true)}
+                onOpenSavedContent={() => setShowSavedContent(true)}
                 onLoginClick={() => {
                     setShowLoginForm((v) => !v)
                     setLoginError('')
@@ -384,6 +442,9 @@ function App() {
                     onClose={() => setShowExplore(false)}
                     onSelectEvent={handleSelectEvent}
                     onSelectPlan={handleSelectExplorePlan}
+                    isLoggedIn={!!currentUser}
+                    savedPlanIds={savedPlanIds}
+                    onSavePlan={handleSavePlan}
                 />
             )}
 
@@ -396,6 +457,8 @@ function App() {
                     onClose={() => setShowPlanner(false)}
                     onOpenEventDetails={handleSelectEvent}
                     onCenterOnMap={handleCenterOnMap}
+                    isLoggedIn={!!currentUser}
+                    onSaveRoute={handleSaveRoute}
                 />
             )}
 
@@ -591,6 +654,23 @@ function App() {
                 <ProfileModal
                     onClose={() => setShowOwnProfile(false)}
                     onProfileUpdated={handleProfileUpdated}
+                />
+            )}
+            {showSavedContent && currentUser && (
+                <SavedContentPanel
+                    savedContent={savedContent}
+                    events={events}
+                    onClose={() => setShowSavedContent(false)}
+                    onOpenEventDetails={(eventId) => {
+                        setSelectedEventId(eventId)
+                        setShowSavedContent(false)
+                    }}
+                    onCenterOnMap={(position) => {
+                        handleCenterOnMap(position)
+                        setShowSavedContent(false)
+                    }}
+                    onRemovePlan={handleRemoveSavedPlan}
+                    onRemoveRoute={handleRemoveSavedRoute}
                 />
             )}
             {viewingUserId && (

@@ -6,6 +6,7 @@ type TopBarProps = {
     onOpenExplore: () => void
     onOpenPlanner: () => void
     onOpenProfile: () => void
+    onOpenSavedContent: () => void
     onLoginClick: () => void
     onLogout: () => void
 }
@@ -14,7 +15,15 @@ function getInitials(username: string): string {
     return username.slice(0, 2).toUpperCase()
 }
 
-export default function TopBar({ currentUser, onOpenExplore, onOpenPlanner, onOpenProfile, onLoginClick, onLogout }: TopBarProps) {
+export default function TopBar({
+    currentUser,
+    onOpenExplore,
+    onOpenPlanner,
+    onOpenProfile,
+    onOpenSavedContent,
+    onLoginClick,
+    onLogout,
+}: TopBarProps) {
     const [accountOpen, setAccountOpen] = useState(false)
     const accountRef = useRef<HTMLDivElement | null>(null)
 
@@ -41,6 +50,11 @@ export default function TopBar({ currentUser, onOpenExplore, onOpenPlanner, onOp
     const handleOpenProfile = () => {
         setAccountOpen(false)
         onOpenProfile()
+    }
+
+    const handleOpenSavedContent = () => {
+        setAccountOpen(false)
+        onOpenSavedContent()
     }
 
     const handleLogout = () => {
@@ -94,6 +108,9 @@ export default function TopBar({ currentUser, onOpenExplore, onOpenPlanner, onOp
                                 </div>
                                 <button type="button" className="account-popover__button" onClick={handleOpenProfile}>
                                     View &amp; edit profile
+                                </button>
+                                <button type="button" className="account-popover__button" onClick={handleOpenSavedContent}>
+                                    Saved content
                                 </button>
                                 <button
                                     type="button"
