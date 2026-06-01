@@ -3,6 +3,7 @@ import type { AuthUser } from './api'
 
 type TopBarProps = {
     currentUser: AuthUser | null
+    onOpenExplore: () => void
     onOpenProfile: () => void
     onLoginClick: () => void
     onLogout: () => void
@@ -12,7 +13,7 @@ function getInitials(username: string): string {
     return username.slice(0, 2).toUpperCase()
 }
 
-export default function TopBar({ currentUser, onOpenProfile, onLoginClick, onLogout }: TopBarProps) {
+export default function TopBar({ currentUser, onOpenExplore, onOpenProfile, onLoginClick, onLogout }: TopBarProps) {
     const [accountOpen, setAccountOpen] = useState(false)
 
     const handleOpenProfile = () => {
@@ -35,7 +36,7 @@ export default function TopBar({ currentUser, onOpenProfile, onLoginClick, onLog
                 </div>
             </div>
             <nav className="top-bar__nav" aria-label="Primary navigation">
-                <a href="#explore-panel">Explore</a>
+                <button type="button" onClick={onOpenExplore}>Explore</button>
                 <a href="#suggestions-panel">Suggestions</a>
                 <a href="#friends-panel">Friends</a>
                 {currentUser ? (
