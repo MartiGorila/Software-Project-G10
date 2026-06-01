@@ -8,6 +8,7 @@ import CreatePanel from './CreatePanel'
 import FilterPanel from './FilterPanel'
 import SuggestionsPanel from './SuggestionsPanel'
 import ExplorePanel from './ExplorePanel'
+import PlannerPanel from './PlannerPanel'
 import TopBar from './TopBar'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
@@ -103,6 +104,7 @@ function App() {
     const [showOwnProfile, setShowOwnProfile] = useState(false)
     const [viewingUserId, setViewingUserId] = useState<string | null>(null)
     const [showExplore, setShowExplore] = useState(false)
+    const [showPlanner, setShowPlanner] = useState(false)
     const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends])
 
     // ── Load data ─────────────────────────────────────────────────────────────
@@ -323,6 +325,10 @@ function App() {
     const handleSelectExplorePlan = (position: [number, number]) => {
         setSuggestionFocus(position)
     }
+
+    const handleCenterOnMap = (position: [number, number]) => {
+        setSuggestionFocus(position)
+    }
     // ── Filter actions ────────────────────────────────────────────────────────
 
     const handleToggleTag = (tagId: number) => {
@@ -359,6 +365,7 @@ function App() {
             <TopBar
                 currentUser={currentUser}
                 onOpenExplore={() => setShowExplore(true)}
+                onOpenPlanner={() => setShowPlanner(true)}
                 onOpenProfile={() => setShowOwnProfile(true)}
                 onLoginClick={() => {
                     setShowLoginForm((v) => !v)
@@ -377,6 +384,18 @@ function App() {
                     onClose={() => setShowExplore(false)}
                     onSelectEvent={handleSelectEvent}
                     onSelectPlan={handleSelectExplorePlan}
+                />
+            )}
+
+            {showPlanner && (
+                <PlannerPanel
+                    events={events}
+                    plans={plans}
+                    mapCenter={mapCenter}
+                    tags={visibleTags}
+                    onClose={() => setShowPlanner(false)}
+                    onOpenEventDetails={handleSelectEvent}
+                    onCenterOnMap={handleCenterOnMap}
                 />
             )}
 
