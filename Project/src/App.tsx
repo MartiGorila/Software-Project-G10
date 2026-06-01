@@ -7,6 +7,7 @@ import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
 import FilterPanel from './FilterPanel'
 import SuggestionsPanel from './SuggestionsPanel'
+import TopBar from './TopBar'
 import ProfileModal from './ProfileModal'
 import PublicProfileModal from './PublicProfileModal'
 import SubscriptionPanel from './SubscriptionPanel'
@@ -186,6 +187,10 @@ function App() {
     const filteredPlans = (filterType === 'events' ? [] : plans).filter((p) =>
         matchesTags(p.tags, selectedTagIds),
     )
+    const visibleTags = useMemo(
+        () => allTags.filter((tag) => !tag.name.toLowerCase().startsWith('ci-')),
+        [allTags],
+    )
     const subscribedMarkers = events
         .filter((event) => joinedEventIds.has(event.id))
         .map(eventToMarkerData)
@@ -344,38 +349,173 @@ function App() {
     }
 
     return (
-        <div className="map-shell" style={{ display: 'flex' }}>
-            <MapContainer
-                className="leaflet-container"
-                center={barcelonaCenter}
-                zoom={14}
-                style={{ height: '100vh', flex: 1 }}
-            >
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
+        <div className="map-shell">
+            <TopBar
+                currentUser={currentUser}
+                onOpenProfile={() => setShowOwnProfile(true)}
+                onLoginClick={() => {
+                    setShowLoginForm((v) => !v)
+                    setLoginError('')
+                }}
+                onLogout={handleLogout}
+            />
 
-                <Marker position={barcelonaCenter}>
-                    <Popup>Barcelona center: Plaça de Catalunya.</Popup>
-                </Marker>
+            {!currentUser && showLoginForm && (
+                <div className="top-auth-popover">
+                    <div className="top-auth-card">
+                        <div className="auth-mode-row">
+                            <button type="button" className="popup-button"
+                                onClick={() => { setAuthMode('login'); setLoginError('') }}
+                                disabled={authMode === 'login'}>Login</button>
+                            <button type="button" className="popup-button"
+                                onClick={() => { setAuthMode('register'); setLoginError('') }}
+                                disabled={authMode === 'register'}>Register</button>
+                        </div>
+                        {authMode === 'login' ? (
+                            <form className="login-form" onSubmit={handleLogin}>
+                                <div className="login-field">
+                                    <label htmlFor="login-email">Email</label>
+                                    <input id="login-email" className="popup-input" type="email"
+                                        value={loginForm.email}
+                                        onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
+                                </div>
+                                <div className="login-field">
+                                    <label htmlFor="login-password">Password</label>
+                                    <input id="login-password" className="popup-input" type="password"
+                                        value={loginForm.password}
+                                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
+                                </div>
+                                <button type="submit" className="popup-submit">Sign in</button>
+                            </form>
+                        ) : (
+                            <form className="login-form" onSubmit={handleRegister}>
+                                <div className="login-field">
+                                    <label htmlFor="register-username">Username</label>
+                                    <input id="register-username" className="popup-input"
+                                        value={registerForm.username}
+                                        onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} />
+                                </div>
+                                <div className="login-field">
+                                    <label htmlFor="register-email">Email</label>
+                                    <input id="register-email" className="popup-input" type="email"
+                                        value={registerForm.email}
+                                        onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} />
+                                </div>
+                                <div className="login-field">
+                                    <label htmlFor="register-password">Password</label>
+                                    <input id="register-password" className="popup-input" type="password"
+                                        value={registerForm.password}
+                                        onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} />
+                                </div>
+                                <button type="submit" className="popup-submit">Register</button>
+                            </form>
+                        )}
+                        {isLoading && <div className="login-info">Loading map data...</div>}
+                        {loginError && <div className="login-error">{loginError}</div>}
+                    </div>
+                </div>
+            )}
 
-                <MapCenterTracker onCenterChange={setMapCenter} />
+            <main className="app-main">
+                <section className="map-card" aria-label="Explore map">
+                    <div className="map-card__header">
+                        <div>
+                            <span className="map-card__eyebrow">Barcelona live map</span>
+                            <h1>Explore events and plans nearby</h1>
+                        </div>
+                        <p>Click the map to create something new, or select an event marker to see details.</p>
+                    </div>
 
-                <MapMarkers
-                    events={filteredEvents}
-                    plans={filteredPlans}
-                    currentUserId={currentUser?.id ?? null}
-                    isLoggedIn={!!currentUser}
-                    onDeletePlan={handleDeletePlan}
-                    onViewUserProfile={setViewingUserId}
-                    onMapClick={setClickPosition}
-                    clickPosition={clickPosition}
-                    onCloseClick={() => setClickPosition(null)}
-                    onEventSelect={handleSelectEvent}
-                    focusPosition={suggestionFocus}
-                />
-            </MapContainer>
+                    <div className="map-card__body">
+                        <MapContainer
+                            className="leaflet-container"
+                            center={barcelonaCenter}
+                            zoom={14}
+                            style={{ height: '100%' }}
+                        >
+                            <TileLayer
+                                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            />
+
+                            <Marker position={barcelonaCenter}>
+                                <Popup>Barcelona center: Plaça de Catalunya.</Popup>
+                            </Marker>
+
+                            <MapCenterTracker onCenterChange={setMapCenter} />
+
+                            <MapMarkers
+                                events={filteredEvents}
+                                plans={filteredPlans}
+                                currentUserId={currentUser?.id ?? null}
+                                isLoggedIn={!!currentUser}
+                                onDeletePlan={handleDeletePlan}
+                                onViewUserProfile={setViewingUserId}
+                                onMapClick={setClickPosition}
+                                clickPosition={clickPosition}
+                                onCloseClick={() => setClickPosition(null)}
+                                onEventSelect={handleSelectEvent}
+                                focusPosition={suggestionFocus}
+                            />
+                        </MapContainer>
+                        <div className="map-scrim" aria-hidden="true" />
+                    </div>
+
+                    <div className="map-legend">
+                        <div className="map-legend__item">
+                            <span className="map-legend__dot map-legend__dot--event" />
+                            <span>Event</span>
+                        </div>
+                        <div className="map-legend__item">
+                            <span className="map-legend__dot map-legend__dot--plan" />
+                            <span>Plan</span>
+                        </div>
+                        <div className="map-legend__item">
+                            <span className="map-legend__dot map-legend__dot--own" />
+                            <span>Yours</span>
+                        </div>
+                    </div>
+                </section>
+
+                <aside className="sidebar-overlay">
+                <section className="control-section">
+                    <div className="control-section__label" id="explore-panel">Explore filters</div>
+                    <FilterPanel
+                        tags={visibleTags}
+                        selectedTagIds={selectedTagIds}
+                        onToggleTag={handleToggleTag}
+                        onClear={handleClearFilters}
+                        filterType={filterType}
+                        onFilterType={setFilterType}
+                    />
+                </section>
+
+                <section className="control-section">
+                    <div className="control-section__label" id="suggestions-panel">Suggestions</div>
+                    <SuggestionsPanel
+                        mapCenter={mapCenter}
+                        selectedTagIds={selectedTagIds}
+                        filterType={filterType}
+                        tags={visibleTags}
+                        onSelectSuggestion={handleSelectSuggestion}
+                    />
+                </section>
+
+                <section className="control-section">
+                    <div className="control-section__label" id="friends-panel">Friends &amp; subscribed events</div>
+                    <SubscriptionPanel
+                        subscribedMarkers={subscribedMarkers}
+                        friends={friends}
+                        friendsLoading={friendsLoading}
+                        friendsError={friendsError}
+                        onRemoveSubscription={handleLeave}
+                        onRemoveFriend={handleRemoveFriend}
+                        onViewUserProfile={setViewingUserId}
+                        currentUser={currentUser}
+                    />
+                </section>
+                </aside>
+            </main>
 
             {selectedEvent && (
                 <div className="event-details-overlay" onClick={handleCloseEventDetails}>
@@ -393,166 +533,13 @@ function App() {
                 </div>
             )}
 
-            {/* Sidebar */}
-            <div className="sidebar-overlay">
-                {/* Login panel */}
-                <div className="login-panel">
-                    <button
-                        type="button"
-                        className="login-button"
-                        onClick={() => {
-                            if (currentUser) { handleLogout(); return }
-                            setShowLoginForm((v) => !v)
-                            setLoginError('')
-                        }}
-                    >
-                        {currentUser ? 'Logout' : 'Login / Register'}
-                    </button>
-                    {currentUser && (
-                        <div className="login-info">
-                            {/* Profile button */}
-                            {currentUser && (
-                                <button type="button" className="sidebar-profile-btn" onClick={() => setShowOwnProfile(true)}>
-                                    <span className="sidebar-profile-avatar">
-                                        {currentUser.avatar_url
-                                            ? <img src={currentUser.avatar_url} alt={currentUser.username} />
-                                            : currentUser.username.slice(0, 2).toUpperCase()}
-                                    </span>
-                                    <span className="sidebar-profile-label">
-                                        <strong>{currentUser.username}</strong>
-                                        <small>View &amp; edit profile</small>
-                                    </span>
-                                    <span className="sidebar-profile-arrow">→</span>
-                                </button>
-                            )}
-                        </div>
-                    )}
-                    {!currentUser && showLoginForm && (
-                        <div>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                <button type="button" className="popup-button"
-                                    onClick={() => { setAuthMode('login'); setLoginError('') }}
-                                    disabled={authMode === 'login'}>Login</button>
-                                <button type="button" className="popup-button"
-                                    onClick={() => { setAuthMode('register'); setLoginError('') }}
-                                    disabled={authMode === 'register'}>Register</button>
-                            </div>
-                            {authMode === 'login' ? (
-                                <form className="login-form" onSubmit={handleLogin}>
-                                    <div className="login-field">
-                                        <label htmlFor="login-email">Email</label>
-                                        <input id="login-email" className="popup-input" type="email"
-                                            value={loginForm.email}
-                                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
-                                    </div>
-                                    <div className="login-field">
-                                        <label htmlFor="login-password">Password</label>
-                                        <input id="login-password" className="popup-input" type="password"
-                                            value={loginForm.password}
-                                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
-                                    </div>
-                                    <button type="submit" className="popup-submit">Sign in</button>
-                                </form>
-                            ) : (
-                                <form className="login-form" onSubmit={handleRegister}>
-                                    <div className="login-field">
-                                        <label htmlFor="register-username">Username</label>
-                                        <input id="register-username" className="popup-input"
-                                            value={registerForm.username}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })} />
-                                    </div>
-                                    <div className="login-field">
-                                        <label htmlFor="register-email">Email</label>
-                                        <input id="register-email" className="popup-input" type="email"
-                                            value={registerForm.email}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })} />
-                                    </div>
-                                    <div className="login-field">
-                                        <label htmlFor="register-password">Password</label>
-                                        <input id="register-password" className="popup-input" type="password"
-                                            value={registerForm.password}
-                                            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })} />
-                                    </div>
-                                    <button type="submit" className="popup-submit">Register</button>
-                                </form>
-                            )}
-                        </div>
-                    )}
-                    {isLoading && <div className="login-info">Loading map data…</div>}
-                    {loginError && <div className="login-error">{loginError}</div>}
-                </div>
-
-                {/* Legend */}
-                <div className="map-legend">
-                    <div className="map-legend__item">
-                        <span className="map-legend__dot map-legend__dot--event" />
-                        <span>Event</span>
-                    </div>
-                    <div className="map-legend__item">
-                        <span className="map-legend__dot map-legend__dot--plan" />
-                        <span>Plan</span>
-                    </div>
-                    <div className="map-legend__item">
-                        <span className="map-legend__dot map-legend__dot--own" />
-                        <span>Yours</span>
-                    </div>
-                </div>
-
-                {/* Filter panel */}
-                <FilterPanel
-                    tags={allTags}
-                    selectedTagIds={selectedTagIds}
-                    onToggleTag={handleToggleTag}
-                    onClear={handleClearFilters}
-                    filterType={filterType}
-                    onFilterType={setFilterType}
-                />
-
-                <SuggestionsPanel
-                    mapCenter={mapCenter}
-                    selectedTagIds={selectedTagIds}
-                    filterType={filterType}
-                    tags={allTags}
-                    onSelectSuggestion={handleSelectSuggestion}
-                />
-
-                {/* Profile button //Moved this part to the login panel since it contains user info and actions that are not relevant when the user is not logged in
-                {currentUser && (
-                    <button type="button" className="sidebar-profile-btn" onClick={() => setShowOwnProfile(true)}>
-                        <span className="sidebar-profile-avatar">
-                            {currentUser.avatar_url
-                                ? <img src={currentUser.avatar_url} alt={currentUser.username} />
-                                : currentUser.username.slice(0, 2).toUpperCase()}
-                        </span>
-                        <span className="sidebar-profile-label">
-                            <strong>{currentUser.username}</strong>
-                            <small>View &amp; edit profile</small>
-                        </span>
-                        <span className="sidebar-profile-arrow">→</span>
-                    </button>
-                )} */}
-
-                {/* Subscription panel */}
-                <SubscriptionPanel
-                    subscribedMarkers={subscribedMarkers}
-                    friends={friends}
-                    friendsLoading={friendsLoading}
-                    friendsError={friendsError}
-                    onRemoveSubscription={handleLeave}
-                    onRemoveFriend={handleRemoveFriend}
-                    onViewUserProfile={setViewingUserId}
-                    currentUser={currentUser}
-                    onOpenProfile={() => setShowOwnProfile(true)}
-                />
-            </div>
-
             {/* Create panel (left side) */}
             {clickPosition && currentUser && (
                 <div className="create-panel-overlay">
                     <div style={{ padding: '1.25rem' }}>
                         <CreatePanel
                             position={clickPosition}
-                            availableTags={allTags}
+                            availableTags={visibleTags}
                             onEventCreated={handleEventCreated}
                             onPlanCreated={handlePlanCreated}
                             onCancel={() => setClickPosition(null)}
