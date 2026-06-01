@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ApiEvent, ApiPlan, Tag } from './api'
+import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 
 type PlannerType = 'both' | 'events' | 'plans'
 type PlanLength = 'quick' | 'half-day' | 'full-day'
@@ -69,6 +70,13 @@ function formatEventTime(iso: string) {
     })
 }
 
+function formatEventClock(iso: string) {
+    return new Date(iso).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+}
+
 function getPreview(description: string | null) {
     if (!description) return 'No description yet.'
     return description.length > 120 ? `${description.slice(0, 117)}...` : description
@@ -125,23 +133,33 @@ function scoreItem(
     }
 }
 
-function buildRoute(
+function eventTimeMs(item: PlannerItem) {
+    if (item.type !== 'event' || !item.eventTime) return null
+    const time = new Date(item.eventTime).getTime()
+    return Number.isFinite(time) ? time : null
+}
+
+function withUniqueReason(item: PlannerItem, reason: string): PlannerItem {
+    return item.reasons.includes(reason) ? item : { ...item, reasons: [...item.reasons, reason] }
+}
+
+function selectRouteCandidates(
     candidates: PlannerItem[],
     mapCenter: [number, number],
     targetStops: number,
     budgetMax: number | null,
-): RouteStop[] {
+): PlannerItem[] {
     const remaining = [...candidates].sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score
         if (a.distanceFromCenter !== b.distanceFromCenter) return a.distanceFromCenter - b.distanceFromCenter
         if (a.type !== b.type) return a.type.localeCompare(b.type)
         return a.name.localeCompare(b.name)
     })
-    const route: RouteStop[] = []
+    const selected: PlannerItem[] = []
     let currentPosition = mapCenter
     let knownBudget = 0
 
-    while (route.length < targetStops && remaining.length > 0) {
+    while (selected.length < targetStops && remaining.length > 0) {
         const ranked = remaining
             .map((item) => {
                 const legDistance = distanceKm(currentPosition, [item.lat, item.lng])
@@ -164,20 +182,127 @@ function buildRoute(
         const next = ranked[0]
         if (!next || next.routeScore < -20) break
 
-        route.push({
-            ...next.item,
-            stopNumber: route.length + 1,
-            legDistance: next.legDistance,
-            reasons: route.length === 0
-                ? next.item.reasons
-                : [...next.item.reasons, `nearest good next stop at ${next.legDistance.toFixed(1)}km`],
-        })
+        selected.push(next.item)
         if (next.item.budget !== null) knownBudget += next.item.budget
         currentPosition = [next.item.lat, next.item.lng]
         remaining.splice(remaining.findIndex((item) => item.type === next.item.type && item.id === next.item.id), 1)
     }
 
-    return route
+    return selected
+}
+
+function nearestFirst(items: PlannerItem[], start: [number, number]) {
+    const remaining = [...items]
+    const ordered: PlannerItem[] = []
+    let currentPosition = start
+
+    while (remaining.length > 0) {
+        remaining.sort((a, b) => {
+            const aDistance = distanceKm(currentPosition, [a.lat, a.lng])
+            const bDistance = distanceKm(currentPosition, [b.lat, b.lng])
+            if (aDistance !== bDistance) return aDistance - bDistance
+            if (b.score !== a.score) return b.score - a.score
+            return a.name.localeCompare(b.name)
+        })
+        const next = remaining.shift()
+        if (!next) break
+        ordered.push(next)
+        currentPosition = [next.lat, next.lng]
+    }
+
+    return ordered
+}
+
+function addStopNumbers(items: PlannerItem[], mapCenter: [number, number]): RouteStop[] {
+    let currentPosition = mapCenter
+    return items.map((item, index) => {
+        const legDistance = distanceKm(currentPosition, [item.lat, item.lng])
+        currentPosition = [item.lat, item.lng]
+        return {
+            ...item,
+            stopNumber: index + 1,
+            legDistance,
+        }
+    })
+}
+
+function orderRouteCandidates(selected: PlannerItem[], mapCenter: [number, number]): RouteStop[] {
+    const timedEvents = selected
+        .filter((item) => eventTimeMs(item) !== null)
+        .sort((a, b) => {
+            const aTime = eventTimeMs(a) ?? 0
+            const bTime = eventTimeMs(b) ?? 0
+            if (aTime !== bTime) return aTime - bTime
+            return a.name.localeCompare(b.name)
+        })
+        .map((item) => withUniqueReason(item, `scheduled at ${formatEventClock(item.eventTime ?? '')}`))
+    const untimedItems = selected.filter((item) => eventTimeMs(item) === null)
+
+    if (timedEvents.length === 0) {
+        return addStopNumbers(nearestFirst(untimedItems, mapCenter), mapCenter)
+    }
+
+    const slots: PlannerItem[][] = Array.from({ length: timedEvents.length + 1 }, () => [])
+
+    untimedItems.forEach((item) => {
+        const slotCosts = slots.map((_, slotIndex) => {
+            if (slotIndex === 0) {
+                return distanceKm(mapCenter, [item.lat, item.lng]) + distanceKm([item.lat, item.lng], [timedEvents[0].lat, timedEvents[0].lng])
+            }
+
+            const previousTimed = timedEvents[slotIndex - 1]
+            const previousPoint: [number, number] = [previousTimed.lat, previousTimed.lng]
+
+            if (slotIndex === timedEvents.length) {
+                return distanceKm(previousPoint, [item.lat, item.lng])
+            }
+
+            const nextTimed = timedEvents[slotIndex]
+            const nextPoint: [number, number] = [nextTimed.lat, nextTimed.lng]
+            const directDistance = distanceKm(previousPoint, nextPoint)
+            return distanceKm(previousPoint, [item.lat, item.lng]) + distanceKm([item.lat, item.lng], nextPoint) - directDistance
+        })
+        const bestSlotIndex = slotCosts.reduce((bestIndex, cost, index) => cost < slotCosts[bestIndex] ? index : bestIndex, 0)
+        const placementReason = bestSlotIndex === 0
+            ? 'placed before the first timed stop'
+            : bestSlotIndex === timedEvents.length
+                ? 'placed after timed stops'
+                : 'placed between timed stops'
+        slots[bestSlotIndex].push(withUniqueReason(item, placementReason))
+    })
+
+    const ordered: PlannerItem[] = []
+    let anchor = mapCenter
+    ordered.push(...nearestFirst(slots[0], anchor))
+    if (ordered.length > 0) {
+        const last = ordered[ordered.length - 1]
+        anchor = [last.lat, last.lng]
+    }
+
+    timedEvents.forEach((event, index) => {
+        ordered.push(event)
+        anchor = [event.lat, event.lng]
+        const slotItems = nearestFirst(slots[index + 1], anchor)
+        ordered.push(...slotItems)
+        if (slotItems.length > 0) {
+            const last = slotItems[slotItems.length - 1]
+            anchor = [last.lat, last.lng]
+        }
+    })
+
+    return addStopNumbers(ordered, mapCenter)
+}
+
+function buildRoute(
+    candidates: PlannerItem[],
+    mapCenter: [number, number],
+    targetStops: number,
+    budgetMax: number | null,
+): RouteStop[] {
+    return orderRouteCandidates(
+        selectRouteCandidates(candidates, mapCenter, targetStops, budgetMax),
+        mapCenter,
+    )
 }
 
 export default function PlannerPanel({
@@ -352,65 +477,72 @@ export default function PlannerPanel({
                                 No route could be generated with these filters. Try widening the radius or clearing tags.
                             </div>
                         )}
-                        {route.map((stop) => (
-                            <article key={`${stop.type}-${stop.id}`} className="planner-stop">
-                                <div className="planner-stop__rail">
-                                    <div className="planner-stop__number">{stop.stopNumber}</div>
-                                </div>
-                                <div className="planner-stop__content">
-                                    <div className="planner-stop__topline">
-                                        <span className={`explore-card__badge explore-card__badge--${stop.type}`}>
-                                            {stop.type === 'event' ? 'Event' : 'Plan'}
-                                        </span>
-                                        <span className="explore-card__distance">
-                                            {stop.legDistance.toFixed(1)}km leg · {stop.distanceFromCenter.toFixed(1)}km from center
-                                        </span>
+                        {route.map((stop) => {
+                            const { visibleTags, hiddenCount } = getVisibleTags(stop.tags)
+                            return (
+                                <article key={`${stop.type}-${stop.id}`} className="planner-stop">
+                                    <div className="planner-stop__rail">
+                                        <div className="planner-stop__number">{stop.stopNumber}</div>
                                     </div>
-                                    <h3>{stop.name}</h3>
-                                    <p>{getPreview(stop.description)}</p>
-                                    <div className="explore-card__meta">
-                                        <span>{formatBudget(stop.budget)}</span>
-                                        {stop.type === 'event' && stop.eventTime && <span>{formatEventTime(stop.eventTime)}</span>}
-                                    </div>
-                                    {stop.tags.length > 0 && (
-                                        <div className="explore-card__tags">
-                                            {stop.tags.map((tag) => (
-                                                <span key={tag.id}>#{tag.name}</span>
+                                    <div className="planner-stop__content">
+                                        <div className="planner-stop__topline">
+                                            <span className={`explore-card__badge explore-card__badge--${stop.type}`}>
+                                                <span className="explore-card__icon" aria-hidden="true">
+                                                    {getCategoryIcon(stop.tags, stop.type)}
+                                                </span>
+                                                {stop.type === 'event' ? 'Event' : 'Plan'}
+                                            </span>
+                                            <span className="explore-card__distance">
+                                                {stop.legDistance.toFixed(1)}km leg · {stop.distanceFromCenter.toFixed(1)}km from center
+                                            </span>
+                                        </div>
+                                        <h3>{stop.name}</h3>
+                                        <p>{getPreview(stop.description)}</p>
+                                        <div className="explore-card__meta">
+                                            <span>{formatBudget(stop.budget)}</span>
+                                            {stop.type === 'event' && stop.eventTime && <span>{formatEventTime(stop.eventTime)}</span>}
+                                        </div>
+                                        {visibleTags.length > 0 && (
+                                            <div className="explore-card__tags">
+                                                {visibleTags.map((tag) => (
+                                                    <span key={tag.id}>#{tag.name}</span>
+                                                ))}
+                                                {hiddenCount > 0 && <span className="explore-card__tag-more">+{hiddenCount} more</span>}
+                                            </div>
+                                        )}
+                                        <div className="planner-stop__reasons">
+                                            {stop.reasons.map((reason, reasonIndex) => (
+                                                <span key={`${stop.type}-${stop.id}-${reasonIndex}`}>{reason}</span>
                                             ))}
                                         </div>
-                                    )}
-                                    <div className="planner-stop__reasons">
-                                        {stop.reasons.map((reason) => (
-                                            <span key={reason}>{reason}</span>
-                                        ))}
-                                    </div>
-                                    <div className="planner-stop__actions">
-                                        {stop.type === 'event' && (
+                                        <div className="planner-stop__actions">
+                                            {stop.type === 'event' && (
+                                                <button
+                                                    type="button"
+                                                    className="planner-action"
+                                                    onClick={() => {
+                                                        onOpenEventDetails(stop.id)
+                                                        onClose()
+                                                    }}
+                                                >
+                                                    Open full event details
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
-                                                className="planner-action"
+                                                className="planner-action planner-action--secondary"
                                                 onClick={() => {
-                                                    onOpenEventDetails(stop.id)
+                                                    onCenterOnMap([stop.lat, stop.lng])
                                                     onClose()
                                                 }}
                                             >
-                                                Open full event details
+                                                Center on map
                                             </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            className="planner-action planner-action--secondary"
-                                            onClick={() => {
-                                                onCenterOnMap([stop.lat, stop.lng])
-                                                onClose()
-                                            }}
-                                        >
-                                            Center on map
-                                        </button>
+                                        </div>
                                     </div>
-                                </div>
-                            </article>
-                        ))}
+                                </article>
+                            )
+                        })}
                     </div>
                 </div>
             </section>

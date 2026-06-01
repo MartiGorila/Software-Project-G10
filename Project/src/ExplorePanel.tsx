@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ApiEvent, ApiPlan, Tag } from './api'
+import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 
 type ExploreItem =
     | { type: 'event'; item: ApiEvent; distanceKm: number }
@@ -50,11 +51,6 @@ function matchesSelectedTags(itemTags: Tag[] | undefined, selectedTagIds: Set<nu
     if (selectedTagIds.size === 0) return true
     const itemTagIds = new Set((itemTags ?? []).map((tag) => tag.id))
     return [...selectedTagIds].every((tagId) => itemTagIds.has(tagId))
-}
-
-function getPreview(description: string | null) {
-    if (!description) return 'No description yet.'
-    return description.length > 120 ? `${description.slice(0, 117)}...` : description
 }
 
 export default function ExplorePanel({
@@ -128,6 +124,9 @@ export default function ExplorePanel({
                         <div className="explore-detail__card">
                             <div className="explore-card__topline">
                                 <span className={`explore-card__badge explore-card__badge--${selectedItem.type}`}>
+                                    <span className="explore-card__icon" aria-hidden="true">
+                                        {getCategoryIcon(selectedItem.item.tags, selectedItem.type)}
+                                    </span>
                                     {selectedItem.type === 'event' ? 'Event' : 'Plan'}
                                 </span>
                                 <span className="explore-card__distance">{selectedItem.distanceKm.toFixed(1)}km away</span>
@@ -228,34 +227,40 @@ export default function ExplorePanel({
                                     No matching events or plans found in this radius.
                                 </div>
                             )}
-                            {results.map((result) => (
-                                <button
-                                    key={`${result.type}-${result.item.id}`}
-                                    type="button"
-                                    className="explore-card"
-                                    onClick={() => setSelectedItem(result)}
-                                >
-                                    <div className="explore-card__topline">
-                                        <span className={`explore-card__badge explore-card__badge--${result.type}`}>
-                                            {result.type === 'event' ? 'Event' : 'Plan'}
-                                        </span>
-                                        <span className="explore-card__distance">{result.distanceKm.toFixed(1)}km away</span>
-                                    </div>
-                                    <h3>{result.item.name}</h3>
-                                    <p>{getPreview(result.item.description)}</p>
-                                    <div className="explore-card__meta">
-                                        <span>{formatBudget(result.item.budget)}</span>
-                                        {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
-                                    </div>
-                                    {(result.item.tags?.length ?? 0) > 0 && (
-                                        <div className="explore-card__tags">
-                                            {result.item.tags?.map((tag) => (
-                                                <span key={tag.id}>#{tag.name}</span>
-                                            ))}
+                            {results.map((result) => {
+                                const { visibleTags, hiddenCount } = getVisibleTags(result.item.tags)
+                                return (
+                                    <button
+                                        key={`${result.type}-${result.item.id}`}
+                                        type="button"
+                                        className="explore-card"
+                                        onClick={() => setSelectedItem(result)}
+                                    >
+                                        <div className="explore-card__topline">
+                                            <span className={`explore-card__badge explore-card__badge--${result.type}`}>
+                                                <span className="explore-card__icon" aria-hidden="true">
+                                                    {getCategoryIcon(result.item.tags, result.type)}
+                                                </span>
+                                                {result.type === 'event' ? 'Event' : 'Plan'}
+                                            </span>
+                                            <span className="explore-card__distance">{result.distanceKm.toFixed(1)}km away</span>
                                         </div>
-                                    )}
-                                </button>
-                            ))}
+                                        <h3>{result.item.name}</h3>
+                                        <div className="explore-card__meta">
+                                            <span>{formatBudget(result.item.budget)}</span>
+                                            {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
+                                        </div>
+                                        {visibleTags.length > 0 && (
+                                            <div className="explore-card__tags">
+                                                {visibleTags.map((tag) => (
+                                                    <span key={tag.id}>#{tag.name}</span>
+                                                ))}
+                                                {hiddenCount > 0 && <span className="explore-card__tag-more">+{hiddenCount} more</span>}
+                                            </div>
+                                        )}
+                                    </button>
+                                )
+                            })}
                         </div>
                     </>
                 )}

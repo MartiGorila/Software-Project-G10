@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { getSuggestions, SuggestionResult, Tag } from './api'
+import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 
 type Props = {
     mapCenter: [number, number]
@@ -25,6 +26,8 @@ export default function SuggestionsPanel({
     const [results, setResults] = useState<SuggestionResult[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [hasSearched, setHasSearched] = useState(false)
+    const [excludedByBudget, setExcludedByBudget] = useState(0)
     const selectedTagNames = [...selectedTagIds]
         .map((id) => tags.find((tag) => tag.id === id)?.name)
         .filter(Boolean)
@@ -34,6 +37,8 @@ export default function SuggestionsPanel({
         event.preventDefault()
         setLoading(true)
         setError('')
+        setHasSearched(true)
+        setExcludedByBudget(0)
 
         const parsedRadius = Number(radius)
         const parsedBudget = budgetMax.trim() ? Number(budgetMax) : undefined
@@ -58,10 +63,15 @@ export default function SuggestionsPanel({
                 tag_ids: [...selectedTagIds],
                 type: filterType,
             })
-            setResults(data.results)
+            const filteredResults = parsedBudget === undefined
+                ? data.results
+                : data.results.filter((suggestion) => suggestion.budget === null || suggestion.budget <= parsedBudget)
+            setExcludedByBudget(data.results.length - filteredResults.length)
+            setResults(filteredResults)
         } catch (suggestionError) {
             setError(suggestionError instanceof Error ? suggestionError.message : 'Failed to load suggestions.')
             setResults([])
+            setExcludedByBudget(0)
         } finally {
             setLoading(false)
         }
@@ -70,7 +80,8 @@ export default function SuggestionsPanel({
     return (
         <section className="suggestions-panel">
             <div className="suggestions-panel__header">
-                <span className="suggestions-panel__title">Suggestions</span>
+                <span className="suggestions-panel__title">Recommended picks</span>
+                <span className="suggestions-panel__subtitle">Ranked by distance, tags, and budget fit.</span>
             </div>
             <form className="suggestions-panel__form" onSubmit={handleSubmit}>
                 <div className="suggestions-panel__row">
@@ -105,38 +116,63 @@ export default function SuggestionsPanel({
             </form>
             {error && <div className="suggestions-panel__error">{error}</div>}
             {!loading && !error && results.length === 0 && (
-                <div className="suggestions-panel__empty">No suggestions loaded yet.</div>
+                <div className="suggestions-panel__empty">
+                    {hasSearched
+                        ? excludedByBudget > 0
+                            ? 'No suggestions match your max budget. Unknown-budget options would still appear here if available.'
+                            : 'No matching suggestions found. Try increasing the radius, clearing tags, or raising the max budget.'
+                        : 'No suggestions loaded yet.'}
+                </div>
+            )}
+            {!loading && !error && excludedByBudget > 0 && results.length > 0 && (
+                <div className="suggestions-panel__hint">
+                    Hidden {excludedByBudget} over-budget result{excludedByBudget === 1 ? '' : 's'}.
+                </div>
             )}
             {results.length > 0 && (
                 <ul className="suggestions-panel__list">
-                    {results.map((suggestion) => (
-                        <li key={`${suggestion.type}-${suggestion.id}`} className="suggestions-panel__item">
-                            <button
-                                type="button"
-                                className="suggestions-panel__item-button"
-                                onClick={() => onSelectSuggestion(suggestion)}
-                            >
-                                <span className={`suggestions-panel__badge suggestions-panel__badge--${suggestion.type}`}>
-                                    {suggestion.type}
-                                </span>
-                                <span className="suggestions-panel__name">{suggestion.name}</span>
-                                <span className="suggestions-panel__meta">
-                                    {suggestion.distance_km.toFixed(1)} km · score {suggestion.score.toFixed(0)}
-                                </span>
-                                <span className="suggestions-panel__meta">{formatBudget(suggestion.budget)}</span>
-                                {suggestion.tags.length > 0 && (
-                                    <span className="suggestions-panel__tags">
-                                        {suggestion.tags.map((tag) => (
-                                            <span key={tag.id}>#{tag.name}</span>
-                                        ))}
+                    {results.map((suggestion) => {
+                        const { visibleTags, hiddenCount } = getVisibleTags(suggestion.tags, 2)
+                        return (
+                            <li key={`${suggestion.type}-${suggestion.id}`} className="suggestions-panel__item">
+                                <button
+                                    type="button"
+                                    className="suggestions-panel__item-button"
+                                    onClick={() => onSelectSuggestion(suggestion)}
+                                >
+                                    <span className="suggestions-panel__topline">
+                                        <span className={`suggestions-panel__badge suggestions-panel__badge--${suggestion.type}`}>
+                                            <span aria-hidden="true">{getCategoryIcon(suggestion.tags, suggestion.type)}</span>
+                                            {suggestion.type}
+                                        </span>
+                                        <span className="suggestions-panel__score">{suggestion.score.toFixed(0)} match</span>
                                     </span>
-                                )}
-                                <span className="suggestions-panel__reasons">
-                                    {suggestion.reasons.join(' · ')}
-                                </span>
-                            </button>
-                        </li>
-                    ))}
+                                    <span className="suggestions-panel__name">{suggestion.name}</span>
+                                    <span className="suggestions-panel__meta">
+                                        {suggestion.distance_km.toFixed(1)} km · {formatBudget(suggestion.budget)}
+                                    </span>
+                                    {visibleTags.length > 0 && (
+                                        <span className="suggestions-panel__tags">
+                                            {visibleTags.map((tag) => (
+                                                <span key={tag.id}>#{tag.name}</span>
+                                            ))}
+                                            {hiddenCount > 0 && <span>+{hiddenCount} more</span>}
+                                        </span>
+                                    )}
+                                    {suggestion.reasons.length > 0 && (
+                                        <span className="suggestions-panel__why">
+                                            <strong>Why suggested</strong>
+                                            <span>
+                                                {suggestion.reasons.slice(0, 3).map((reason) => (
+                                                    <em key={reason}>{reason}</em>
+                                                ))}
+                                            </span>
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
+                        )
+                    })}
                 </ul>
             )}
         </section>
