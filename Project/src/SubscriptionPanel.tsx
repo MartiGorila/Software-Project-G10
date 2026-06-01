@@ -11,7 +11,6 @@ type SubscriptionPanelProps = {
     onRemoveSubscription: (markerId: string) => void
     onRemoveFriend: (friendId: string) => Promise<void>
     onViewUserProfile: (userId: string) => void
-    onOpenProfile: () => void
 }
 
 export default function SubscriptionPanel({
@@ -23,7 +22,6 @@ export default function SubscriptionPanel({
     onRemoveSubscription,
     onRemoveFriend,
     onViewUserProfile,
-    onOpenProfile,
 }: SubscriptionPanelProps) {
     const [removingFriendId, setRemovingFriendId] = useState<string | null>(null)
     const [friendActionError, setFriendActionError] = useState('')
@@ -42,42 +40,8 @@ export default function SubscriptionPanel({
 
     return (
         <aside className="sidebar">
-            <div className="sidebar-header">
-                <h2>Subscribed events</h2>
-                <p className="sidebar-note">Saved markers you subscribed to appear here.</p>
-            </div>
             {currentUser && (
-                <button type="button" className="popup-button" onClick={onOpenProfile}>
-                    View &amp; edit profile
-                </button>
-            )}
-            {!currentUser && <div className="sidebar-empty">Log in to see your subscriptions.</div>}
-            {currentUser && subscribedMarkers.length === 0 && (
-                <div className="sidebar-empty">You have no subscriptions yet.</div>
-            )}
-            {currentUser && subscribedMarkers.length > 0 && (
-                <>
-                    <ul className="sidebar-list">
-                        {subscribedMarkers.map((marker) => (
-                            <li key={marker.id} className="sidebar-item">
-                                <strong>{marker.name}</strong>
-                                <div>Time: {marker.hour}</div>
-                                {marker.description && <div>{marker.description}</div>}
-                                <button
-                                    type="button"
-                                    className="popup-button popup-unsubscribe"
-                                    onClick={() => onRemoveSubscription(marker.id)}
-                                >
-                                    Unsubscribe
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </>
-            )}
-
-            {currentUser && (
-                <section className="friends-section">
+                <section className="friends-section friends-section--top">
                     <div className="friends-section__header">
                         <h3>Friends</h3>
                     </div>
@@ -119,6 +83,35 @@ export default function SubscriptionPanel({
                     )}
                 </section>
             )}
+
+            <section className="subscriptions-section">
+                <div className="sidebar-header">
+                    <h2>Subscribed events</h2>
+                    <p className="sidebar-note">Saved markers you subscribed to appear here.</p>
+                </div>
+                {!currentUser && <div className="sidebar-empty">Log in to see your subscriptions.</div>}
+                {currentUser && subscribedMarkers.length === 0 && (
+                    <div className="sidebar-empty">You have no subscriptions yet.</div>
+                )}
+                {currentUser && subscribedMarkers.length > 0 && (
+                    <ul className="sidebar-list">
+                        {subscribedMarkers.map((marker) => (
+                            <li key={marker.id} className="sidebar-item">
+                                <strong>{marker.name}</strong>
+                                <div>Time: {marker.hour}</div>
+                                {marker.description && <div>{marker.description}</div>}
+                                <button
+                                    type="button"
+                                    className="popup-button popup-unsubscribe"
+                                    onClick={() => onRemoveSubscription(marker.id)}
+                                >
+                                    Unsubscribe
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
         </aside>
     )
 }

@@ -34,35 +34,385 @@
 }
 
 .map-shell {
-    position: relative;
+    display: flex;
+    flex-direction: column;
     width: 100vw;
-    height: 100vh;
+    min-height: 100vh;
     overflow: hidden;
+    background:
+        radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.1), transparent 32rem),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 68px;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(14px);
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.top-bar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.top-bar__mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2563eb, #16a34a);
+    color: white;
+    font-weight: 900;
+    box-shadow: 0 10px 28px rgba(37, 99, 235, 0.28);
+    flex-shrink: 0;
+}
+
+.top-bar__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.top-bar__name {
+    color: #0f172a;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+.top-bar__tagline {
+    color: #475569;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-bar__nav {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.top-bar__nav a,
+.top-bar__nav button {
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #475569;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 800;
+    padding: 0.45rem 0.7rem;
+    text-decoration: none;
+}
+
+.top-bar__nav a:hover,
+.top-bar__nav button:hover:not(:disabled) {
+    background: #eef2ff;
+    color: #1d4ed8;
+}
+
+.top-bar__nav button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.top-bar__account {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.top-bar__avatar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    overflow: hidden;
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.16);
+}
+
+.top-bar__avatar-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.top-bar__avatar-btn span {
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.top-bar__avatar-btn:hover {
+    border-color: rgba(37, 99, 235, 0.36);
+    background: #dbeafe;
+}
+
+.account-popover {
+    position: absolute;
+    top: calc(100% + 0.75rem);
+    right: 0;
+    z-index: 1400;
+    width: 260px;
+    padding: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(14px);
+}
+
+.account-popover__identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.account-popover__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb, #16a34a);
+    color: white;
+    font-size: 0.78rem;
+    font-weight: 900;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.account-popover__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.account-popover__text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+
+.account-popover__text strong,
+.account-popover__text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-popover__text strong {
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+
+.account-popover__text small {
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.account-popover__button {
+    width: 100%;
+    border: none;
+    border-radius: 0.7rem;
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 800;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+}
+
+.account-popover__button:hover {
+    background: #dbeafe;
+}
+
+.account-popover__button + .account-popover__button {
+    margin-top: 0.45rem;
+}
+
+.account-popover__button--danger {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.account-popover__button--danger:hover {
+    background: #fee2e2;
+}
+
+.top-auth-popover {
+    position: absolute;
+    top: 76px;
+    right: 1.25rem;
+    z-index: 1300;
+    width: min(340px, calc(100vw - 1.5rem));
+}
+
+.top-auth-card {
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(14px);
+}
+
+.top-auth-card .popup-input,
+.top-auth-card .popup-submit {
+    max-width: none;
+}
+
+.auth-mode-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.app-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 400px);
+    gap: 1.25rem;
+    flex: 1;
+    min-height: 0;
+    padding: 1.25rem;
+}
+
+.map-card {
+    display: grid;
+    grid-template-rows: auto minmax(420px, 1fr) auto;
+    min-width: 0;
+    min-height: calc(100vh - 68px - 2.5rem);
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+}
+
+.map-card__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.map-card__eyebrow {
+    display: block;
+    color: #2563eb;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.map-card__header h1 {
+    margin: 0.15rem 0 0;
+    color: #0f172a;
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.map-card__header p {
+    max-width: 24rem;
+    margin: 0;
+    color: #64748b;
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.map-card__body {
+    position: relative;
+    min-height: 0;
 }
 
 .leaflet-container {
     width: 100%;
     height: 100%;
+    background: #dbeafe;
+}
+
+.map-scrim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 450;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 38%);
 }
 
 .sidebar-overlay {
-    position: absolute;
-    top: 1.25rem;
-    right: 1.25rem;
-    width: 320px;
-    max-height: calc(100vh - 2.5rem);
+    position: static;
+    width: 100%;
+    max-height: calc(100vh - 68px - 2.5rem);
     overflow-y: auto;
-    pointer-events: auto;
-    z-index: 1000;
+    display: grid;
+    align-content: start;
+    gap: 0.95rem;
+    padding-right: 0.15rem;
+}
+
+.control-section {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.control-section__label {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    border-radius: 999px;
+    background: #e0ecff;
+    color: #1d4ed8;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    padding: 0.23rem 0.55rem;
+    text-transform: uppercase;
+    box-shadow: none;
 }
 
 .sidebar {
     padding: 1.25rem;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.52);
     border-radius: 1rem;
-    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 18px 52px rgba(15, 23, 42, 0.14);
     overflow-y: auto;
+    backdrop-filter: blur(12px);
 }
 
 .sidebar-header {
@@ -194,6 +544,18 @@
     margin-top: 1.25rem;
     padding-top: 1rem;
     border-top: 1px solid #e2e8f0;
+}
+
+.friends-section--top {
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 1rem;
+    border-top: none;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.subscriptions-section {
+    padding-top: 1rem;
 }
 
 .friends-section__header h3 {
@@ -379,11 +741,12 @@
 }
 
 .login-panel {
-    margin-bottom: 1rem;
     padding: 1rem 1rem 0.75rem;
     border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.52);
+    box-shadow: 0 18px 52px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(12px);
 }
 
 .login-button {
@@ -883,12 +1246,12 @@
 
 .map-legend {
     display: flex;
+    justify-content: center;
     gap: 0.75rem;
-    padding: 0.65rem 0.9rem;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 0.75rem;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    padding: 0.75rem 1rem;
+    margin: 0;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
     font-size: 0.82rem;
     color: #374151;
     font-weight: 500;
@@ -1103,8 +1466,8 @@
 .create-panel-overlay {
     position: fixed;
     left: 0;
-    top: 0;
-    bottom: 0;
+    top: 5.8rem;
+    bottom: 1.25rem;
     width: 400px;
     max-width: 90vw;
     z-index: 2000;
@@ -1282,10 +1645,10 @@
 /* ── Filter panel ─────────────────────────────────────────────────────────── */
 
 .filter-panel {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 0.85rem;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
     padding: 0.75rem 0.9rem;
 }
 
@@ -1383,11 +1746,10 @@
 /* ── Suggestions panel ────────────────────────────────────────────────────── */
 
 .suggestions-panel {
-    margin-top: 1rem;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 0.85rem;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
     padding: 0.75rem 0.9rem;
 }
 
@@ -1589,4 +1951,59 @@
     background: #2563eb;
     color: white;
     border-color: #2563eb;
+}
+
+@media (max-width: 760px) {
+    .top-bar {
+        height: auto;
+        min-height: 58px;
+        padding: 0.55rem 0.75rem;
+    }
+
+    .top-bar__tagline {
+        display: none;
+    }
+
+    .top-bar__nav {
+        gap: 0.1rem;
+    }
+
+    .top-bar__nav a,
+    .top-bar__nav button {
+        padding: 0.38rem 0.45rem;
+        font-size: 0.76rem;
+    }
+
+    .top-auth-popover {
+        top: 68px;
+        left: 0.75rem;
+        right: 0.75rem;
+        width: auto;
+    }
+
+    .app-main {
+        grid-template-columns: 1fr;
+        padding: 0.85rem;
+    }
+
+    .map-card {
+        min-height: 62vh;
+        grid-template-rows: auto 48vh auto;
+    }
+
+    .map-card__header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+
+    .sidebar-overlay {
+        max-height: none;
+    }
+
+    .create-panel-overlay {
+        inset: 4.75rem 0.75rem 0.75rem;
+        width: auto;
+        max-width: none;
+    }
 }
