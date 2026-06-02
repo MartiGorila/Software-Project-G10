@@ -1,307 +1,409 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rove App Presentation</title>
 
   <style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
-  }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-  :root {
-    --blue: #179BEF;
-    --cyan: #21C7D9;
-    --green: #4ADE4A;
-    --dark: #102A43;
-    --text: #1F2937;
-    --light-bg: #F4FBFD;
-    --white: #FFFFFF;
-  }
+    :root {
+      --blue: #179BEF;
+      --cyan: #21C7D9;
+      --green: #4ADE4A;
+      --dark: #102A43;
+      --text: #1F2937;
+      --light-bg: #F4FBFD;
+      --white: #FFFFFF;
+    }
 
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    background: var(--light-bg);
-    color: var(--text);
-    line-height: 1.6;
-    padding-top: 72px;
-  }
-
-  nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 72px;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 40px;
-    z-index: 1000;
-  }
-
-  .nav-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: bold;
-    font-size: 1.3rem;
-    color: var(--dark);
-  }
-
-  .nav-logo img {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-  }
-
-  .nav-links a {
-    margin-left: 24px;
-    text-decoration: none;
-    color: var(--dark);
-    font-weight: bold;
-    transition: color 0.2s ease;
-  }
-
-  .nav-links a:hover {
-    color: var(--blue);
-  }
-
-  header {
-    min-height: 90vh;
-    background: linear-gradient(135deg, var(--blue), var(--cyan), var(--green));
-    color: white;
-    padding: 100px 20px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .hero-content {
-    max-width: 850px;
-  }
-
-  .hero-logo {
-    width: 150px;
-    height: 150px;
-    border-radius: 35px;
-    margin-bottom: 25px;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
-  }
-
-  header h1 {
-    font-size: 4.8rem;
-    margin-bottom: 12px;
-    letter-spacing: 2px;
-  }
-
-  header p {
-    font-size: 1.35rem;
-    max-width: 750px;
-    margin: 0 auto 25px;
-  }
-
-  .hero-button {
-    display: inline-block;
-    margin-top: 15px;
-    padding: 14px 30px;
-    background: white;
-    color: var(--blue);
-    text-decoration: none;
-    font-weight: bold;
-    border-radius: 999px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
-    transition: transform 0.2s ease;
-  }
-
-  .hero-button:hover {
-    transform: translateY(-3px);
-  }
-
-  section {
-    padding: 80px 20px;
-    max-width: 1100px;
-    margin: auto;
-  }
-
-  section h2 {
-    font-size: 2.3rem;
-    margin-bottom: 25px;
-    text-align: center;
-    color: var(--dark);
-  }
-
-  .intro-text {
-    text-align: center;
-    font-size: 1.1rem;
-    max-width: 850px;
-    margin: 0 auto;
-  }
-
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 25px;
-    margin-top: 35px;
-  }
-
-  .card {
-    background: var(--white);
-    padding: 25px;
-    border-radius: 22px;
-    box-shadow: 0 8px 22px rgba(23, 155, 239, 0.12);
-    border: 1px solid rgba(33, 199, 217, 0.18);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 14px 30px rgba(23, 155, 239, 0.2);
-  }
-
-  .card h3 {
-    color: var(--blue);
-    margin-bottom: 8px;
-  }
-
-  .role {
-    font-weight: bold;
-    color: var(--cyan);
-    margin-bottom: 10px;
-  }
-
-  .feature-icon {
-    font-size: 2rem;
-    margin-bottom: 12px;
-  }
-
-  .highlight {
-    background: linear-gradient(135deg, rgba(23, 155, 239, 0.12), rgba(74, 222, 74, 0.14));
-    border-radius: 25px;
-    padding: 35px;
-    margin-top: 30px;
-  }
-
-  .steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 25px;
-    margin-top: 35px;
-  }
-
-  .step {
-    background: white;
-    padding: 25px;
-    border-radius: 18px;
-    text-align: center;
-    box-shadow: 0 8px 22px rgba(23, 155, 239, 0.12);
-  }
-
-  .step span {
-    display: inline-block;
-    background: linear-gradient(135deg, var(--blue), var(--green));
-    color: white;
-    width: 42px;
-    height: 42px;
-    line-height: 42px;
-    border-radius: 50%;
-    font-weight: bold;
-    margin-bottom: 12px;
-  }
-
-  .mockup {
-    background: white;
-    border: 2px dashed var(--cyan);
-    border-radius: 22px;
-    padding: 40px;
-    text-align: center;
-    margin-top: 30px;
-    color: #6b7280;
-  }
-
-  footer {
-    background: var(--dark);
-    color: white;
-    text-align: center;
-    padding: 40px 20px;
-  }
-
-  footer h2 {
-    margin-bottom: 10px;
-    font-size: 2rem;
-  }
-
-  @media (max-width: 750px) {
-    nav {
-      height: auto;
-      padding: 15px 20px;
-      flex-direction: column;
-      gap: 12px;
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
-      padding-top: 120px;
+      background: var(--light-bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding-top: 72px;
     }
 
-    .nav-links {
-      text-align: center;
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 72px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      z-index: 1000;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+      font-size: 1.3rem;
+      color: var(--dark);
+    }
+
+    .nav-logo img {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
     }
 
     .nav-links a {
-      margin: 0 8px;
-      font-size: 0.9rem;
+      margin-left: 24px;
+      text-decoration: none;
+      color: var(--dark);
+      font-weight: bold;
+      transition: color 0.2s ease;
     }
 
-    header h1 {
-      font-size: 3.2rem;
+    .nav-links a:hover {
+      color: var(--blue);
+    }
+
+    header {
+      min-height: 90vh;
+      background: linear-gradient(135deg, var(--blue), var(--cyan), var(--green));
+      color: white;
+      padding: 100px 20px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-content {
+      max-width: 850px;
     }
 
     .hero-logo {
-      width: 115px;
-      height: 115px;
+      width: 150px;
+      height: 150px;
+      border-radius: 35px;
+      margin-bottom: 25px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
     }
-  }
-</style>
+
+    header h1 {
+      font-size: 4.8rem;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+
+    header p {
+      font-size: 1.35rem;
+      max-width: 750px;
+      margin: 0 auto 25px;
+    }
+
+    .hero-button {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 14px 30px;
+      background: white;
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 999px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+      transition: transform 0.2s ease;
+    }
+
+    .hero-button:hover {
+      transform: translateY(-3px);
+    }
+
+    section {
+      padding: 80px 20px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    section h2 {
+      font-size: 2.3rem;
+      margin-bottom: 25px;
+      text-align: center;
+      color: var(--dark);
+    }
+
+    .intro-text {
+      text-align: center;
+      font-size: 1.1rem;
+      max-width: 850px;
+      margin: 0 auto;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 25px;
+      margin-top: 35px;
+    }
+
+    .card {
+      background: var(--white);
+      padding: 25px;
+      border-radius: 22px;
+      box-shadow: 0 8px 22px rgba(23, 155, 239, 0.12);
+      border: 1px solid rgba(33, 199, 217, 0.18);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 14px 30px rgba(23, 155, 239, 0.2);
+    }
+
+    .card h3 {
+      color: var(--blue);
+      margin-bottom: 8px;
+    }
+
+    .role {
+      font-weight: bold;
+      color: var(--cyan);
+      margin-bottom: 10px;
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .highlight {
+      background: linear-gradient(135deg, rgba(23, 155, 239, 0.12), rgba(74, 222, 74, 0.14));
+      border-radius: 25px;
+      padding: 35px;
+      margin-top: 30px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 25px;
+      margin-top: 35px;
+    }
+
+    .step {
+      background: white;
+      padding: 25px;
+      border-radius: 18px;
+      text-align: center;
+      box-shadow: 0 8px 22px rgba(23, 155, 239, 0.12);
+    }
+
+    .step span {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--blue), var(--green));
+      color: white;
+      width: 42px;
+      height: 42px;
+      line-height: 42px;
+      border-radius: 50%;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .mockup {
+      background: white;
+      border: 2px dashed var(--cyan);
+      border-radius: 22px;
+      padding: 40px;
+      text-align: center;
+      margin-top: 30px;
+      color: #6b7280;
+    }
+
+    /* Carousel Styles */
+    .carousel-container {
+      position: relative;
+      max-width: 800px;
+      margin: 40px auto 0 auto;
+      overflow: hidden;
+      border-radius: 22px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+      background: #000;
+    }
+
+    .carousel-slides {
+      display: flex;
+      transition: transform 0.4s ease-in-out;
+      width: 100%;
+    }
+
+    .slide {
+      min-width: 100%;
+      position: relative;
+    }
+
+    .slide img {
+      width: 100%;
+      display: block;
+      height: 450px;
+      object-fit: cover;
+    }
+
+    .slide-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(16, 42, 67, 0.85);
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--dark);
+      border: none;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+
+    .carousel-btn:hover {
+      background: white;
+      color: var(--blue);
+    }
+
+    .prev {
+      left: 15px;
+    }
+
+    .next {
+      right: 15px;
+    }
+
+    .carousel-dots {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin: 0 5px;
+      background: #cbd5e1;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .dot.active {
+      background: var(--blue);
+      width: 24px;
+      border-radius: 6px;
+    }
+
+    footer {
+      background: var(--dark);
+      color: white;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    footer h2 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+
+    @media (max-width: 750px) {
+      nav {
+        height: auto;
+        padding: 15px 20px;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      body {
+        padding-top: 120px;
+      }
+
+      .nav-links {
+        text-align: center;
+      }
+
+      .nav-links a {
+        margin: 0 8px;
+        font-size: 0.9rem;
+      }
+
+      header h1 {
+        font-size: 3.2rem;
+      }
+
+      .hero-logo {
+        width: 115px;
+        height: 115px;
+      }
+
+      .slide img {
+        height: 300px;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
   <nav>
-  <div class="nav-logo">
-    <img src="images/rove-icon.png" alt="Rove logo">
-    <span>Rove</span>
-  </div>
-
-  <div class="nav-links">
-    <a href="#team">Team</a>
-    <a href="#app">App</a>
-    <a href="#features">Features</a>
-    <a href="#how">How It Works</a>
-    <a href="#future">Future</a>
-  </div>
-    </nav>
-
-    <header>
-    <div class="hero-content">
-        <img class="hero-logo" src="images/rove-mark-white.png" alt="Rove main logo">
-        <h1>Rove</h1>
-        <p>
-        Discover events, create plans, meet new people, and organize your social life through an interactive map.
-        </p>
-        <a href="#app" class="hero-button">Explore the App</a>
+    <div class="nav-logo">
+      <img src="images/rove-icon.png" alt="Rove logo">
+      <span>Rove</span>
     </div>
-    </header>
+
+    <div class="nav-links">
+      <a href="#team">Team</a>
+      <a href="#app">App</a>
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#testing">Testing</a>
+      <a href="#future">Future</a>
+    </div>
+  </nav>
+
+  <header>
+    <div class="hero-content">
+      <img class="hero-logo" src="images/rove-mark-white.png" alt="Rove main logo">
+      <h1>Rove</h1>
+      <p>
+        Discover events, create plans, meet new people, and organize your social life through an interactive map.
+      </p>
+      <a href="#app" class="hero-button">Explore the App</a>
+    </div>
+  </header>
 
   <section id="team">
     <h2>Meet the Team</h2>
@@ -313,31 +415,36 @@
       <div class="card">
         <h3>Member 1 Name</h3>
         <p class="role">Project Manager</p>
-        <p>Organized the team, planned the development process, divided tasks, and made sure the project stayed on track.</p>
+        <p>Organized the team, planned the development process, divided tasks, and made sure the project stayed on
+          track.</p>
       </div>
 
       <div class="card">
         <h3>Member 2 Name</h3>
         <p class="role">Frontend Developer</p>
-        <p>Designed and coded the user interface, including the main screens, buttons, layout, and visual style of the app.</p>
+        <p>Designed and coded the user interface, including the main screens, buttons, layout, and visual style of the
+          app.</p>
       </div>
 
       <div class="card">
         <h3>Member 3 Name</h3>
         <p class="role">Backend Developer</p>
-        <p>Worked on the logic behind the app, such as user accounts, events, plans, and storing information securely.</p>
+        <p>Worked on the logic behind the app, such as user accounts, events, plans, and storing information securely.
+        </p>
       </div>
 
       <div class="card">
         <h3>Member 4 Name</h3>
         <p class="role">UI/UX Designer</p>
-        <p>Created the app design, chose colors, improved usability, and made sure the app was simple and enjoyable to use.</p>
+        <p>Created the app design, chose colors, improved usability, and made sure the app was simple and enjoyable to
+          use.</p>
       </div>
 
       <div class="card">
         <h3>Member 5 Name</h3>
         <p class="role">Map & Events Developer</p>
-        <p>Focused on the map feature, event locations, nearby plans, and how users can discover activities around them.</p>
+        <p>Focused on the map feature, event locations, nearby plans, and how users can discover activities around them.
+        </p>
       </div>
 
       <div class="card">
@@ -353,8 +460,8 @@
 
     <div class="highlight">
       <p class="intro-text">
-        Rove is a social media app based around a map. Users can create events, join plans, meet new people, 
-        and discover fun activities nearby. It can be used to make new friends or simply organize plans with 
+        Rove is a social media app based around a map. Users can create events, join plans, meet new people,
+        and discover fun activities nearby. It can be used to make new friends or simply organize plans with
         your existing friend group.
       </p>
     </div>
@@ -372,13 +479,15 @@
       <div class="card">
         <div class="feature-icon">🗺️</div>
         <h3>Interactive Map</h3>
-        <p>Users can explore nearby events and plans directly on a map, making it easy to see what is happening around them.</p>
+        <p>Users can explore nearby events and plans directly on a map, making it easy to see what is happening around
+          them.</p>
       </div>
 
       <div class="card">
         <div class="feature-icon">📍</div>
         <h3>Create Events</h3>
-        <p>Users can place an event on the map with a title, location, date, time, and description so others can join.</p>
+        <p>Users can place an event on the map with a title, location, date, time, and description so others can join.
+        </p>
       </div>
 
       <div class="card">
@@ -390,7 +499,8 @@
       <div class="card">
         <div class="feature-icon">👥</div>
         <h3>Make Friends</h3>
-        <p>Rove helps users connect with new people who share similar interests and want to participate in the same activities.</p>
+        <p>Rove helps users connect with new people who share similar interests and want to participate in the same
+          activities.</p>
       </div>
 
       <div class="card">
@@ -437,6 +547,54 @@
     </div>
   </section>
 
+  <section id="testing">
+    <h2>Quality Assurance & Testing</h2>
+    <p class="intro-text">
+      To ensure a smooth, bug-free social experience on Rove, we integrated robust testing practices directly into our
+      development lifecycle. This allows us to scale confidently while ensuring core app modules always remain
+      functional.
+    </p>
+
+    <div class="cards" style="margin-bottom: 40px;">
+      <div class="card">
+        <div class="feature-icon">🎭</div>
+        <h3>Playwright E2E Tests</h3>
+        <p>We write End-to-End tests simulating exact user actions—such as toggling complex dynamic forms, typing
+          validation credentials, and verifying map views.</p>
+      </div>
+      <div class="card">
+        <div class="feature-icon">🚀</div>
+        <h3>GitHub PR Pipeline</h3>
+        <p>Every single pull request triggers automated tests. Code cannot be merged into production unless all test
+          cases pass cleanly inside headless target environments.</p>
+      </div>
+
+    </div>
+
+    <div class="carousel-container">
+      <div class="carousel-slides" id="carouselSlides">
+        <div class="slide">
+          <img src="images/Play1.png" alt="Playwright HTML Test Report Dashboard">
+          <div class="slide-caption">Playwright UI Dashboard passing tests seamlessly</div>
+        </div>
+        <div class="slide">
+          <img src="images/github-actions-pipeline.png" alt="GitHub Actions status checks passing on PR">
+          <div class="slide-caption">Automated GitHub Actions PR checks blocking breaking updates</div>
+        </div>
+
+      </div>
+
+      <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+      <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+    </div>
+
+    <div class="carousel-dots">
+      <span class="dot active" onclick="setSlide(0)"></span>
+      <span class="dot" onclick="setSlide(1)"></span>
+      <span class="dot" onclick="setSlide(2)"></span>
+    </div>
+  </section>
+
   <section id="future">
     <h2>Future Improvements</h2>
 
@@ -448,7 +606,8 @@
 
       <div class="card">
         <h3>Interest Filters</h3>
-        <p>Users could filter events by categories such as sports, food, music, studying, nightlife, or outdoor activities.</p>
+        <p>Users could filter events by categories such as sports, food, music, studying, nightlife, or outdoor
+          activities.</p>
       </div>
 
       <div class="card">
@@ -469,5 +628,36 @@
     <p>Created by our software application team.</p>
   </footer>
 
+  <script>
+    let currentSlide = 0;
+    const slidesContainer = document.getElementById('carouselSlides');
+    const totalSlides = document.querySelectorAll('.slide').length;
+    const dots = document.querySelectorAll('.dot');
+
+    function updateCarousel() {
+      slidesContainer.style.transform = `translateX(-${currentSlide * 100}%)`;
+      dots.forEach((dot, index) => {
+        if (index === currentSlide) {
+          dot.classList.add('active');
+        } else {
+          dot.classList.remove('active');
+        }
+      });
+    }
+
+    function moveSlide(direction) {
+      currentSlide += direction;
+      if (currentSlide >= totalSlides) currentSlide = 0;
+      if (currentSlide < 0) currentSlide = totalSlides - 1;
+      updateCarousel();
+    }
+
+    function setSlide(index) {
+      currentSlide = index;
+      updateCarousel();
+    }
+  </script>
+
 </body>
+
 </html>

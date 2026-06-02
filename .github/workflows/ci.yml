@@ -7,6 +7,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -82,9 +83,40 @@ jobs:
           cat backend/server.log
           exit 1
 
+
+      
+      - name: Install Playwright Browsers
+        run: |
+          cd Project
+          npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        id: playwright_tests
+        run: |
+          cd Project
+          npx playwright test
+        continue-on-error: true 
+
+      - name: Upload Playwright HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: Project/playwright-report/
+          retention-days: 30
+
+      # ----------------------------------------
+
       - name: Stop backend server
         if: always()
         run: |
           if [ -f backend/server.pid ]; then
             kill $(cat backend/server.pid) || true
+          fi
+
+      - name: Enforce Test Results
+        run: |
+          if [ "${{ steps.api_tests.outcome }}" = "failure" ] || [ "${{ steps.playwright_tests.outcome }}" = "failure" ]; then
+            echo "One or more test suites failed!"
+            exit 1
           fi
