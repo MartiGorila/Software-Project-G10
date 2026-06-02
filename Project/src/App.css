@@ -44,6 +44,84 @@
         linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
 }
 
+.rove-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: grid;
+    place-items: center;
+    background:
+        radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.22), transparent 22rem),
+        radial-gradient(circle at 78% 82%, rgba(34, 197, 94, 0.42), transparent 20rem),
+        linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 46%, #16a34a 100%);
+    color: #ffffff;
+    opacity: 1;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.rove-splash--exit {
+    visibility: hidden;
+    opacity: 0;
+}
+
+.rove-splash__content {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 1.4rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.rove-splash__content::before {
+    position: absolute;
+    top: 0.2rem;
+    width: min(300px, 66vw);
+    height: min(300px, 66vw);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    content: "";
+    filter: blur(32px);
+}
+
+.rove-splash__logo {
+    position: relative;
+    z-index: 1;
+    width: clamp(150px, 24vw, 220px);
+    height: clamp(150px, 24vw, 220px);
+    object-fit: contain;
+    image-rendering: auto;
+    filter: drop-shadow(0 20px 42px rgba(15, 23, 42, 0.24)) drop-shadow(0 0 28px rgba(255, 255, 255, 0.28));
+}
+
+.rove-splash__progress {
+    overflow: hidden;
+    width: min(210px, 52vw);
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.rove-splash__progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, 0.95);
+    transform-origin: left center;
+    animation: rove-progress 2.85s ease-out forwards;
+}
+
+@keyframes rove-progress {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
 .top-bar {
     display: flex;
     align-items: center;
@@ -59,6 +137,17 @@
     z-index: 100;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .rove-splash {
+        transition: none;
+    }
+
+    .rove-splash__progress span {
+        animation: none;
+        transform: scaleX(1);
+    }
+}
+
 .top-bar__brand {
     display: flex;
     align-items: center;
@@ -69,15 +158,21 @@
 .top-bar__mark {
     width: 38px;
     height: 38px;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 0.85rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #2563eb, #16a34a);
-    color: white;
-    font-weight: 900;
-    box-shadow: 0 10px 28px rgba(37, 99, 235, 0.28);
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
     flex-shrink: 0;
+}
+
+.top-bar__mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 .top-bar__copy {
@@ -97,6 +192,7 @@
 .top-bar__tagline {
     color: #475569;
     font-size: 0.82rem;
+    font-style: italic;
     font-weight: 600;
     line-height: 1.2;
     white-space: nowrap;

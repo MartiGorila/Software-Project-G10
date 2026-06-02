@@ -79,6 +79,8 @@ function App() {
     const [friendsLoading, setFriendsLoading] = useState(false)
     const [friendsError, setFriendsError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
+    const [showSplash, setShowSplash] = useState(true)
+    const [splashExiting, setSplashExiting] = useState(false)
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
@@ -147,6 +149,16 @@ function App() {
             setFriendsLoading(false)
         }
     }
+
+    useEffect(() => {
+        const fadeTimer = window.setTimeout(() => setSplashExiting(true), 2850)
+        const removeTimer = window.setTimeout(() => setShowSplash(false), 3200)
+
+        return () => {
+            window.clearTimeout(fadeTimer)
+            window.clearTimeout(removeTimer)
+        }
+    }, [])
 
     useEffect(() => {
         const init = async () => {
@@ -419,6 +431,16 @@ function App() {
 
     return (
         <div className="map-shell">
+            {showSplash && (
+                <div className={`rove-splash ${splashExiting ? 'rove-splash--exit' : ''}`} aria-label="Loading Rove">
+                    <div className="rove-splash__content">
+                        <img src="/rove-mark-white.png" alt="Rove" className="rove-splash__logo" />
+                        <div className="rove-splash__progress" aria-hidden="true">
+                            <span />
+                        </div>
+                    </div>
+                </div>
+            )}
             <TopBar
                 currentUser={currentUser}
                 onOpenExplore={() => setShowExplore(true)}

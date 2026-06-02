@@ -65,10 +65,12 @@ export default function TopBar({
     return (
         <header className="top-bar" aria-label="Application header">
             <div className="top-bar__brand">
-                <span className="top-bar__mark">E</span>
+                <span className="top-bar__mark">
+                    <img src="/rove-logo.png" alt="" />
+                </span>
                 <div className="top-bar__copy">
-                    <span className="top-bar__name">EventMap</span>
-                    <span className="top-bar__tagline">Discover plans around you</span>
+                    <span className="top-bar__name">Rove</span>
+                    <em className="top-bar__tagline">Wander. Explore. Connect.</em>
                 </div>
             </div>
             <nav className="top-bar__nav" aria-label="Primary navigation">
