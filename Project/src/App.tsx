@@ -319,7 +319,7 @@ function App() {
         setRelevanceFilter('all')
     }
 
-    // ── Join / Leave ──────────────────────────────────────────────────────────
+    // ── Join / Leave ─────────────────────────────────────────────────────────
 
     const handleJoin = async (eventId: string) => {
         try {
@@ -730,51 +730,51 @@ function App() {
                 </section>
 
                 <aside className="sidebar-overlay">
-                <section className="control-section">
-                    <div className="control-section__label" id="explore-panel">Explore filters</div>
-                    <FilterPanel
-                        tags={visibleTags}
-                        selectedTagIds={selectedTagIds}
-                        onToggleTag={handleToggleTag}
-                        onClear={handleClearFilters}
-                        filterType={filterType}
-                        onFilterType={setFilterType}
-                        relevanceFilter={relevanceFilter}
-                        onRelevanceFilter={setRelevanceFilter}
-                        isLoggedIn={!!currentUser}
-                    />
-                </section>
+                    <section className="control-section">
+                        <div className="control-section__label" id="explore-panel">Explore filters</div>
+                        <FilterPanel
+                            tags={visibleTags}
+                            selectedTagIds={selectedTagIds}
+                            onToggleTag={handleToggleTag}
+                            onClear={handleClearFilters}
+                            filterType={filterType}
+                            onFilterType={setFilterType}
+                            relevanceFilter={relevanceFilter}
+                            onRelevanceFilter={setRelevanceFilter}
+                            isLoggedIn={!!currentUser}
+                        />
+                    </section>
 
-                <section className="control-section">
-                    <div className="control-section__label" id="suggestions-panel">Suggestions</div>
-                    <SuggestionsPanel
-                        mapCenter={mapCenter}
-                        selectedTagIds={selectedTagIds}
-                        filterType={filterType}
-                        tags={visibleTags}
-                        events={events}
-                        friendIds={friendIds}
-                        onSelectSuggestion={handleSelectSuggestion}
-                    />
-                </section>
+                    <section className="control-section">
+                        <div className="control-section__label" id="suggestions-panel">Suggestions</div>
+                        <SuggestionsPanel
+                            mapCenter={mapCenter}
+                            selectedTagIds={selectedTagIds}
+                            filterType={filterType}
+                            tags={visibleTags}
+                            events={events}
+                            friendIds={friendIds}
+                            onSelectSuggestion={handleSelectSuggestion}
+                        />
+                    </section>
 
-                <section className="control-section">
-                    <div className="control-section__label" id="friends-panel">Friends &amp; subscribed events</div>
-                    <SubscriptionPanel
-                        subscribedEvents={subscribedEvents}
-                        friends={friends}
-                        friendRequests={friendRequests}
-                        friendsLoading={friendsLoading}
-                        friendsError={friendsError}
-                        onRemoveSubscription={handleLeave}
-                        onRemoveFriend={handleRemoveFriend}
-                        onAcceptFriendRequest={handleAcceptFriendRequest}
-                        onRejectFriendRequest={handleRejectFriendRequest}
-                        onCancelFriendRequest={handleCancelFriendRequest}
-                        onViewUserProfile={setViewingUserId}
-                        currentUser={currentUser}
-                    />
-                </section>
+                    <section className="control-section">
+                        <div className="control-section__label" id="friends-panel">Friends &amp; subscribed events</div>
+                        <SubscriptionPanel
+                            subscribedEvents={subscribedEvents}
+                            friends={friends}
+                            friendRequests={friendRequests}
+                            friendsLoading={friendsLoading}
+                            friendsError={friendsError}
+                            onRemoveSubscription={handleLeave}
+                            onRemoveFriend={handleRemoveFriend}
+                            onAcceptFriendRequest={handleAcceptFriendRequest}
+                            onRejectFriendRequest={handleRejectFriendRequest}
+                            onCancelFriendRequest={handleCancelFriendRequest}
+                            onViewUserProfile={setViewingUserId}
+                            currentUser={currentUser}
+                        />
+                    </section>
                 </aside>
             </main>
 
