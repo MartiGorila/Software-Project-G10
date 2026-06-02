@@ -1,29 +1,38 @@
-import { AuthUser, ApiEvent, Friend } from './api'
+import { AuthUser, ApiEvent, Friend, FriendRequestsResponse } from './api'
 import { getCategoryIcon, getVisibleTags } from './categoryIcons'
 import { useState } from 'react'
 
 type SubscriptionPanelProps = {
     subscribedEvents: ApiEvent[]
     friends: Friend[]
+    friendRequests: FriendRequestsResponse
     friendsLoading: boolean
     friendsError: string
     currentUser: AuthUser | null
     onRemoveSubscription: (markerId: string) => void
     onRemoveFriend: (friendId: string) => Promise<void>
+    onAcceptFriendRequest: (requestId: string) => Promise<void>
+    onRejectFriendRequest: (requestId: string) => Promise<void>
+    onCancelFriendRequest: (requestId: string) => Promise<void>
     onViewUserProfile: (userId: string) => void
 }
 
 export default function SubscriptionPanel({
     subscribedEvents,
     friends,
+    friendRequests,
     friendsLoading,
     friendsError,
     currentUser,
     onRemoveSubscription,
     onRemoveFriend,
+    onAcceptFriendRequest,
+    onRejectFriendRequest,
+    onCancelFriendRequest,
     onViewUserProfile,
 }: SubscriptionPanelProps) {
     const [removingFriendId, setRemovingFriendId] = useState<string | null>(null)
+    const [requestActionId, setRequestActionId] = useState<string | null>(null)
     const [friendActionError, setFriendActionError] = useState('')
 
     const handleRemoveFriend = async (friendId: string) => {
@@ -35,6 +44,24 @@ export default function SubscriptionPanel({
             setFriendActionError(error instanceof Error ? error.message : 'Failed to remove friend.')
         } finally {
             setRemovingFriendId(null)
+        }
+    }
+
+    const handleRequestAction = async (requestId: string, action: 'accept' | 'reject' | 'cancel') => {
+        try {
+            setRequestActionId(requestId)
+            setFriendActionError('')
+            if (action === 'accept') {
+                await onAcceptFriendRequest(requestId)
+            } else if (action === 'reject') {
+                await onRejectFriendRequest(requestId)
+            } else {
+                await onCancelFriendRequest(requestId)
+            }
+        } catch (error) {
+            setFriendActionError(error instanceof Error ? error.message : 'Failed to update request.')
+        } finally {
+            setRequestActionId(null)
         }
     }
 
@@ -93,6 +120,78 @@ export default function SubscriptionPanel({
                                 </li>
                             ))}
                         </ul>
+                    )}
+                    {!friendsLoading && friendRequests.incoming.length > 0 && (
+                        <div className="friend-requests">
+                            <span className="friend-requests__label">Incoming requests</span>
+                            {friendRequests.incoming.map((request) => (
+                                <div key={request.id} className="friend-request-row">
+                                    <button
+                                        type="button"
+                                        className="friend-row__profile"
+                                        onClick={() => onViewUserProfile(request.requester_id)}
+                                    >
+                                        <span className="friend-row__avatar">
+                                            {request.requester?.avatar_url ? (
+                                                <img src={request.requester.avatar_url} alt={request.requester.username} />
+                                            ) : (
+                                                request.requester?.username.slice(0, 2).toUpperCase() ?? '??'
+                                            )}
+                                        </span>
+                                        <span className="friend-row__name">{request.requester?.username ?? 'Unknown user'}</span>
+                                    </button>
+                                    <div className="friend-request-row__actions">
+                                        <button
+                                            type="button"
+                                            className="friend-request-row__accept"
+                                            disabled={requestActionId === request.id}
+                                            onClick={() => handleRequestAction(request.id, 'accept')}
+                                        >
+                                            Accept
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="friend-row__remove"
+                                            disabled={requestActionId === request.id}
+                                            onClick={() => handleRequestAction(request.id, 'reject')}
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {!friendsLoading && friendRequests.outgoing.length > 0 && (
+                        <div className="friend-requests">
+                            <span className="friend-requests__label">Sent requests</span>
+                            {friendRequests.outgoing.map((request) => (
+                                <div key={request.id} className="friend-request-row">
+                                    <button
+                                        type="button"
+                                        className="friend-row__profile"
+                                        onClick={() => onViewUserProfile(request.recipient_id)}
+                                    >
+                                        <span className="friend-row__avatar">
+                                            {request.recipient?.avatar_url ? (
+                                                <img src={request.recipient.avatar_url} alt={request.recipient.username} />
+                                            ) : (
+                                                request.recipient?.username.slice(0, 2).toUpperCase() ?? '??'
+                                            )}
+                                        </span>
+                                        <span className="friend-row__name">{request.recipient?.username ?? 'Unknown user'}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="friend-row__remove"
+                                        disabled={requestActionId === request.id}
+                                        onClick={() => handleRequestAction(request.id, 'cancel')}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </section>
             )}

@@ -1,7 +1,8 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
 import { supabase } from '../index'
-import { requireAuth, AuthRequest } from '../middleware/auth'
+import { optionalAuth, requireAuth, AuthRequest } from '../middleware/auth'
+import { filterVisibleRecords, getFriendIds, normalizeVisibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -11,10 +12,11 @@ const PlanSchema = z.object({
   lat: z.number(),
   lng: z.number(),
   budget: z.number().optional(),
+  visibility: z.enum(['public', 'friends', 'private']).default('public'),
 })
 
 // GET /plans — list all plans with tags
-router.get('/', async (_req, res: Response) => {
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
     .select(`
@@ -37,17 +39,23 @@ router.get('/', async (_req, res: Response) => {
     return
   }
 
-  const normalized = (data ?? []).map((p: Record<string, unknown>) => ({
-    ...p,
-    tags: ((p.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
-    plan_tags: undefined,
-  }))
+  try {
+    const friendIds = await getFriendIds(req.userId)
+    const normalized = filterVisibleRecords((data ?? []).map((p: Record<string, unknown>) => ({
+      ...p,
+      visibility: normalizeVisibility(p.visibility),
+      tags: ((p.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
+      plan_tags: undefined,
+    })), req.userId, friendIds)
 
-  res.json(normalized)
+    res.json(normalized)
+  } catch (visibilityError) {
+    res.status(500).json({ error: visibilityError instanceof Error ? visibilityError.message : 'Failed to apply visibility.' })
+  }
 })
 
 // GET /plans/:id — single plan with tags
-router.get('/:id', async (req, res: Response) => {
+router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response) => {
   const { data, error } = await supabase
     .from('plans')
     .select(`
@@ -71,13 +79,24 @@ router.get('/:id', async (req, res: Response) => {
     return
   }
 
-  const normalized = {
-    ...data,
-    tags: ((data.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
-    plan_tags: undefined,
-  }
+  try {
+    const friendIds = await getFriendIds(req.userId)
+    const normalized = {
+      ...data,
+      visibility: normalizeVisibility(data.visibility),
+      tags: ((data.plan_tags as { tag: { id: number; name: string } }[]) ?? []).map((pt) => pt.tag),
+      plan_tags: undefined,
+    }
 
-  res.json(normalized)
+    if (filterVisibleRecords([normalized], req.userId, friendIds).length === 0) {
+      res.status(404).json({ error: 'Plan not found.' })
+      return
+    }
+
+    res.json(normalized)
+  } catch (visibilityError) {
+    res.status(500).json({ error: visibilityError instanceof Error ? visibilityError.message : 'Failed to apply visibility.' })
+  }
 })
 
 // POST /plans — create plan (auth required)

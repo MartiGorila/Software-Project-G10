@@ -257,7 +257,8 @@ ensure_event() {
   local hour="$7"
   local budget="$8"
   local capacity="$9"
-  shift 9
+  local visibility="${10}"
+  shift 10
   local tag_ids=("$@")
   EVENTS_ATTEMPTED=$((EVENTS_ATTEMPTED + 1))
 
@@ -282,8 +283,9 @@ ensure_event() {
     --argjson lng "$lng" \
     --argjson budget "$budget" \
     --argjson capacity "$capacity" \
+    --arg visibility "$visibility" \
     --argjson tag_ids "$tag_json" \
-    '{name: $name, description: $description, lat: $lat, lng: $lng, event_time: $event_time, budget: $budget, capacity: $capacity, tag_ids: $tag_ids}')"
+    '{name: $name, description: $description, lat: $lat, lng: $lng, event_time: $event_time, budget: $budget, capacity: $capacity, visibility: $visibility, tag_ids: $tag_ids}')"
 
   api_request POST /events "$token" "$body"
   if [ "$(status_code)" != "201" ]; then
@@ -303,7 +305,8 @@ ensure_plan() {
   local lat="$4"
   local lng="$5"
   local budget="$6"
-  shift 6
+  local visibility="$7"
+  shift 7
   local tag_ids=("$@")
   PLANS_ATTEMPTED=$((PLANS_ATTEMPTED + 1))
 
@@ -325,8 +328,9 @@ ensure_plan() {
     --argjson lat "$lat" \
     --argjson lng "$lng" \
     --argjson budget "$budget" \
+    --arg visibility "$visibility" \
     --argjson tag_ids "$tag_json" \
-    '{name: $name, description: $description, lat: $lat, lng: $lng, budget: $budget, tag_ids: $tag_ids}')"
+    '{name: $name, description: $description, lat: $lat, lng: $lng, budget: $budget, visibility: $visibility, tag_ids: $tag_ids}')"
 
   api_request POST /plans "$token" "$body"
   if [ "$(status_code)" != "201" ]; then
@@ -353,13 +357,20 @@ join_event_if_possible() {
 
 add_friend_if_possible() {
   local token="$1"
-  local friend_id="$2"
+  local recipient_token="$2"
+  local friend_id="$3"
   FRIENDS_ATTEMPTED=$((FRIENDS_ATTEMPTED + 1))
-  api_request POST "/users/me/friends/$friend_id" "$token" ""
+  api_request POST "/users/me/friend-requests/$friend_id" "$token" ""
   local status
   status="$(status_code)"
-  if [ "$status" != "201" ] && [ "$status" != "409" ]; then
-    echo "Could not create friendship with $friend_id. HTTP $status" >&2
+  if [ "$status" = "201" ] || [ "$status" = "200" ]; then
+    local request_id
+    request_id="$(jq -r '.id' "$RESPONSE_FILE")"
+    api_request POST "/users/me/friend-requests/$request_id/accept" "$recipient_token" ""
+    status="$(status_code)"
+  fi
+  if [ "$status" != "200" ] && [ "$status" != "409" ]; then
+    echo "Could not create accepted friendship with $friend_id. HTTP $status" >&2
     cat "$RESPONSE_FILE" >&2
   fi
 }
@@ -646,6 +657,12 @@ for neighborhood_index in "${EVENT_NEIGHBORHOOD_SEQUENCE[@]}"; do
   token="$(token_for "$user_key")"
   budget=$((6 + (event_index * 5) % 35))
   capacity=$((10 + (event_index % 5) * 5))
+  visibility="public"
+  if [ $((event_index % 13)) -eq 0 ]; then
+    visibility="private"
+  elif [ $((event_index % 5)) -eq 0 ]; then
+    visibility="friends"
+  fi
   day_offset=$((EVENT_DAY_BASES[$template_index] + event_index / 5))
   hour="${EVENT_HOURS[$template_index]}"
   name="$neighborhood $title ${EVENT_HINTS[$event_index]}"
@@ -657,7 +674,7 @@ for neighborhood_index in "${EVENT_NEIGHBORHOOD_SEQUENCE[@]}"; do
     tag_ids+=("$(tag_for "$tag_c")")
   fi
 
-  ensure_event "$token" "$name" "$description" "$lat" "$lng" "$day_offset" "$hour" "$budget" "$capacity" "${tag_ids[@]}"
+  ensure_event "$token" "$name" "$description" "$lat" "$lng" "$day_offset" "$hour" "$budget" "$capacity" "$visibility" "${tag_ids[@]}"
   event_index=$((event_index + 1))
 done
 
@@ -671,6 +688,12 @@ for neighborhood_index in "${PLAN_NEIGHBORHOOD_SEQUENCE[@]}"; do
   user_key="${USER_KEYS[$(((plan_index + 3) % ${#USER_KEYS[@]}))]}"
   token="$(token_for "$user_key")"
   budget=$((4 + (plan_index * 4) % 30))
+  visibility="public"
+  if [ $((plan_index % 14)) -eq 0 ]; then
+    visibility="private"
+  elif [ $((plan_index % 6)) -eq 0 ]; then
+    visibility="friends"
+  fi
   name="$neighborhood $title ${PLAN_HINTS[$plan_index]}"
   coords="$(organic_coordinate "$base_lat" "$base_lng" "plan|$name" "$spread_km")"
   IFS='|' read -r lat lng <<< "$coords"
@@ -680,23 +703,9 @@ for neighborhood_index in "${PLAN_NEIGHBORHOOD_SEQUENCE[@]}"; do
     tag_ids+=("$(tag_for "$tag_c")")
   fi
 
-  ensure_plan "$token" "$name" "$description" "$lat" "$lng" "$budget" "${tag_ids[@]}"
+  ensure_plan "$token" "$name" "$description" "$lat" "$lng" "$budget" "$visibility" "${tag_ids[@]}"
   plan_index=$((plan_index + 1))
 done
-
-if [ "${#EVENT_IDS[@]}" -gt 0 ]; then
-  for index in "${!EVENT_IDS[@]}"; do
-    event_id="${EVENT_IDS[$index]}"
-    joiner_a="${USER_KEYS[$(((index + 1) % ${#USER_KEYS[@]}))]}"
-    joiner_b="${USER_KEYS[$(((index + 4) % ${#USER_KEYS[@]}))]}"
-    joiner_c="${USER_KEYS[$(((index + 7) % ${#USER_KEYS[@]}))]}"
-    join_event_if_possible "$(token_for "$joiner_a")" "$event_id"
-    join_event_if_possible "$(token_for "$joiner_b")" "$event_id"
-    if [ $((index % 2)) -eq 0 ]; then
-      join_event_if_possible "$(token_for "$joiner_c")" "$event_id"
-    fi
-  done
-fi
 
 FRIEND_PAIRS=(
   "ALBA|MARC"
@@ -715,8 +724,22 @@ FRIEND_PAIRS=(
 
 for pair in "${FRIEND_PAIRS[@]}"; do
   IFS='|' read -r user_key friend_key <<< "$pair"
-  add_friend_if_possible "$(token_for "$user_key")" "$(id_for "$friend_key")"
+  add_friend_if_possible "$(token_for "$user_key")" "$(token_for "$friend_key")" "$(id_for "$friend_key")"
 done
+
+if [ "${#EVENT_IDS[@]}" -gt 0 ]; then
+  for index in "${!EVENT_IDS[@]}"; do
+    event_id="${EVENT_IDS[$index]}"
+    joiner_a="${USER_KEYS[$(((index + 1) % ${#USER_KEYS[@]}))]}"
+    joiner_b="${USER_KEYS[$(((index + 4) % ${#USER_KEYS[@]}))]}"
+    joiner_c="${USER_KEYS[$(((index + 7) % ${#USER_KEYS[@]}))]}"
+    join_event_if_possible "$(token_for "$joiner_a")" "$event_id"
+    join_event_if_possible "$(token_for "$joiner_b")" "$event_id"
+    if [ $((index % 2)) -eq 0 ]; then
+      join_event_if_possible "$(token_for "$joiner_c")" "$event_id"
+    fi
+  done
+fi
 
 echo
 echo "Demo data seed complete."

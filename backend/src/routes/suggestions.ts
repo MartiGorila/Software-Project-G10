@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../index'
+import { optionalAuth, AuthRequest } from '../middleware/auth'
+import { filterVisibleRecords, getFriendIds, normalizeVisibility, Visibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -10,22 +12,26 @@ type Tag = {
 
 type RawEvent = Record<string, unknown> & {
   id: string
+  creator_id: string | null
   name: string
   description: string | null
   lat: number | null
   lng: number | null
   budget: number | string | null
+  visibility?: Visibility | null
   event_time: string
   event_tags?: { tag: Tag }[]
 }
 
 type RawPlan = Record<string, unknown> & {
   id: string
+  creator_id: string | null
   name: string
   description: string | null
   lat: number | null
   lng: number | null
   budget: number | string | null
+  visibility?: Visibility | null
   plan_tags?: { tag: Tag }[]
 }
 
@@ -34,11 +40,13 @@ type SuggestionType = 'event' | 'plan'
 type SuggestionBase = {
   type: SuggestionType
   id: string
+  creator_id: string | null
   name: string
   description: string | null
   lat: number
   lng: number
   budget: number | null
+  visibility: Visibility
   tags: Tag[]
   event_time?: string
 }
@@ -97,11 +105,13 @@ function normalizeEvent(event: RawEvent): SuggestionBase | null {
   return {
     type: 'event',
     id: event.id,
+    creator_id: event.creator_id,
     name: event.name,
     description: event.description,
     lat: event.lat,
     lng: event.lng,
     budget: toNumber(event.budget),
+    visibility: normalizeVisibility(event.visibility),
     tags: (event.event_tags ?? []).map((eventTag) => eventTag.tag).filter(Boolean),
     event_time: event.event_time,
   }
@@ -114,11 +124,13 @@ function normalizePlan(plan: RawPlan): SuggestionBase | null {
   return {
     type: 'plan',
     id: plan.id,
+    creator_id: plan.creator_id,
     name: plan.name,
     description: plan.description,
     lat: plan.lat,
     lng: plan.lng,
     budget: toNumber(plan.budget),
+    visibility: normalizeVisibility(plan.visibility),
     tags: (plan.plan_tags ?? []).map((planTag) => planTag.tag).filter(Boolean),
   }
 }
@@ -165,7 +177,7 @@ function scoreSuggestion(
   }
 }
 
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', optionalAuth, async (req: AuthRequest & Request, res: Response) => {
   const lat = parseRequiredNumber(req.query.lat)
   const lng = parseRequiredNumber(req.query.lng)
   if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -204,11 +216,13 @@ router.get('/', async (req: Request, res: Response) => {
         .from('events')
         .select(`
           id,
+          creator_id,
           name,
           description,
           lat,
           lng,
           budget,
+          visibility,
           event_time,
           event_tags (
             tag:tags (
@@ -223,11 +237,13 @@ router.get('/', async (req: Request, res: Response) => {
         .from('plans')
         .select(`
           id,
+          creator_id,
           name,
           description,
           lat,
           lng,
           budget,
+          visibility,
           plan_tags (
             tag:tags (
               id,
@@ -246,23 +262,28 @@ router.get('/', async (req: Request, res: Response) => {
     return
   }
 
-  const events = ((eventsResult.data ?? []) as RawEvent[]).map(normalizeEvent).filter((item): item is SuggestionBase => item !== null)
-  const plans = ((plansResult.data ?? []) as RawPlan[]).map(normalizePlan).filter((item): item is SuggestionBase => item !== null)
-  const results = [...events, ...plans]
-    .map((item) => {
-      const distanceKm = haversineKm(lat, lng, item.lat, item.lng)
-      if (distanceKm > radius) return null
-      return scoreSuggestion(item, distanceKm, radius, selectedTagIds, budgetMax)
-    })
-    .filter((item): item is SuggestionResult => item !== null)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      if (a.distance_km !== b.distance_km) return a.distance_km - b.distance_km
-      if (a.type !== b.type) return a.type.localeCompare(b.type)
-      return a.name.localeCompare(b.name)
-    })
+  try {
+    const friendIds = await getFriendIds(req.userId)
+    const events = ((eventsResult.data ?? []) as RawEvent[]).map(normalizeEvent).filter((item): item is SuggestionBase => item !== null)
+    const plans = ((plansResult.data ?? []) as RawPlan[]).map(normalizePlan).filter((item): item is SuggestionBase => item !== null)
+    const results = filterVisibleRecords([...events, ...plans], req.userId, friendIds)
+      .map((item) => {
+        const distanceKm = haversineKm(lat, lng, item.lat, item.lng)
+        if (distanceKm > radius) return null
+        return scoreSuggestion(item, distanceKm, radius, selectedTagIds, budgetMax)
+      })
+      .filter((item): item is SuggestionResult => item !== null)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        if (a.distance_km !== b.distance_km) return a.distance_km - b.distance_km
+        if (a.type !== b.type) return a.type.localeCompare(b.type)
+        return a.name.localeCompare(b.name)
+      })
 
-  res.json({ results })
+    res.json({ results })
+  } catch (visibilityError) {
+    res.status(500).json({ error: visibilityError instanceof Error ? visibilityError.message : 'Failed to apply visibility.' })
+  }
 })
 
 export default router

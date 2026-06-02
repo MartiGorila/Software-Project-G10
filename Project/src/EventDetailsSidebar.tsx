@@ -44,6 +44,11 @@ export default function EventDetailsSidebar({
   const capacityLabel = event.capacity != null
     ? `${participants.length}/${event.capacity} going`
     : `${participants.length} going`
+  const visibilityLabel = event.visibility === 'friends'
+    ? 'Friends'
+    : event.visibility === 'private'
+      ? 'Private'
+      : 'Public'
 
   return (
     <div className="event-details-sidebar" onClick={(e) => e.stopPropagation()}>
@@ -80,6 +85,10 @@ export default function EventDetailsSidebar({
         <div className="event-details-metric">
           <span>Capacity</span>
           <strong>{capacityLabel}</strong>
+        </div>
+        <div className="event-details-metric">
+          <span>Visibility</span>
+          <strong>{visibilityLabel}</strong>
         </div>
       </div>
 

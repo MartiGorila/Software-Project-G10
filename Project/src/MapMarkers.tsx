@@ -91,6 +91,12 @@ function formatBudget(budget: number | null) {
     return budget != null ? `€${budget.toFixed(2)}` : null
 }
 
+function formatVisibility(visibility: ApiPlan['visibility']) {
+    if (visibility === 'friends') return 'Friends only'
+    if (visibility === 'private') return 'Private'
+    return 'Public'
+}
+
 function userProfileButton(
     userId: string | undefined,
     username: string | undefined,
@@ -178,6 +184,7 @@ export default function MapMarkers({
                                         {userProfileButton(plan.creator_id, plan.creator?.username, onViewUserProfile) ?? 'Unknown'}
                                     </span>
                                     {plan.budget != null && <span>💰 {formatBudget(plan.budget)}</span>}
+                                    <span>{formatVisibility(plan.visibility)}</span>
                                 </div>
                                 {tags.length > 0 && (
                                     <div className="marker-popup__tags">
