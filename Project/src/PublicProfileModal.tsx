@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { getPublicUser } from './api'
+import { FriendRequest, getPublicUser } from './api'
 import { PublicProfile } from './types'
 
 type PublicProfileModalProps = {
     userId: string
     currentUserId: string | null
     friendIds: Set<string>
-    onAddFriend: (userId: string) => Promise<void>
+    incomingRequest: FriendRequest | null
+    outgoingRequest: FriendRequest | null
+    onSendFriendRequest: (userId: string) => Promise<void>
+    onAcceptFriendRequest: (requestId: string) => Promise<void>
     onRemoveFriend: (userId: string) => Promise<void>
     onClose: () => void
 }
@@ -43,7 +46,10 @@ export default function PublicProfileModal({
     userId,
     currentUserId,
     friendIds,
-    onAddFriend,
+    incomingRequest,
+    outgoingRequest,
+    onSendFriendRequest,
+    onAcceptFriendRequest,
     onRemoveFriend,
     onClose,
 }: PublicProfileModalProps) {
@@ -101,8 +107,10 @@ export default function PublicProfileModal({
             setFriendActionError('')
             if (isFriend) {
                 await onRemoveFriend(profile.id)
+            } else if (incomingRequest) {
+                await onAcceptFriendRequest(incomingRequest.id)
             } else {
-                await onAddFriend(profile.id)
+                await onSendFriendRequest(profile.id)
             }
         } catch (actionError) {
             setFriendActionError(
@@ -112,6 +120,16 @@ export default function PublicProfileModal({
             setFriendActionLoading(false)
         }
     }
+
+    const friendButtonText = friendActionLoading
+        ? 'Updating...'
+        : isFriend
+          ? 'Remove Friend'
+          : incomingRequest
+            ? 'Accept request'
+            : outgoingRequest
+              ? 'Request sent'
+              : 'Send friend request'
 
     return (
         <div className="profile-backdrop" onClick={(event) => event.target === event.currentTarget && onClose()}>
@@ -155,15 +173,12 @@ export default function PublicProfileModal({
                                 <button
                                     type="button"
                                     className={`profile-friend-button ${isFriend ? 'profile-friend-button--remove' : ''}`}
-                                    disabled={friendActionLoading}
+                                    disabled={friendActionLoading || Boolean(outgoingRequest)}
                                     onClick={handleFriendAction}
                                 >
-                                    {friendActionLoading
-                                        ? 'Updating...'
-                                        : isFriend
-                                          ? 'Remove Friend'
-                                          : 'Add Friend'}
+                                    {friendButtonText}
                                 </button>
+                                {isFriend && <span className="profile-friend-status">Friends</span>}
                                 {friendActionError && (
                                     <div className="profile-error profile-error--compact">{friendActionError}</div>
                                 )}

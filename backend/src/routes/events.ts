@@ -1,7 +1,8 @@
 import { Router, Response } from 'express'
 import { z } from 'zod'
 import { supabase } from '../index'
-import { requireAuth, AuthRequest } from '../middleware/auth'
+import { optionalAuth, requireAuth, AuthRequest } from '../middleware/auth'
+import { canViewRecord, filterVisibleRecords, getFriendIds, normalizeVisibility } from '../utils/visibility'
 
 const router = Router()
 
@@ -13,10 +14,11 @@ const EventSchema = z.object({
   event_time: z.string().datetime(),
   budget: z.number().optional(),
   capacity: z.number().int().optional(),
+  visibility: z.enum(['public', 'friends', 'private']).default('public'),
 })
 
 // GET /events — list all events with tags
-router.get('/', async (_req, res: Response) => {
+router.get('/', optionalAuth, async (req: AuthRequest, res: Response) => {
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -48,17 +50,23 @@ router.get('/', async (_req, res: Response) => {
   }
 
   // Flatten tags: event_tags: [{ tag: { id, name } }] -> tags: [{ id, name }]
-  const normalized = (data ?? []).map((e: Record<string, unknown>) => ({
-    ...e,
-    tags: ((e.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
-    event_tags: undefined,
-  }))
+  try {
+    const friendIds = await getFriendIds(req.userId)
+    const normalized = filterVisibleRecords((data ?? []).map((e: Record<string, unknown>) => ({
+      ...e,
+      visibility: normalizeVisibility(e.visibility),
+      tags: ((e.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
+      event_tags: undefined,
+    })), req.userId, friendIds)
 
-  res.json(normalized)
+    res.json(normalized)
+  } catch (visibilityError) {
+    res.status(500).json({ error: visibilityError instanceof Error ? visibilityError.message : 'Failed to apply visibility.' })
+  }
 })
 
 // GET /events/:id — single event with participants and tags
-router.get('/:id', async (req, res: Response) => {
+router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response) => {
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -90,13 +98,24 @@ router.get('/:id', async (req, res: Response) => {
     return
   }
 
-  const normalized = {
-    ...data,
-    tags: ((data.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
-    event_tags: undefined,
-  }
+  try {
+    const friendIds = await getFriendIds(req.userId)
+    const normalized = {
+      ...data,
+      visibility: normalizeVisibility(data.visibility),
+      tags: ((data.event_tags as { tag: { id: number; name: string } }[]) ?? []).map((et) => et.tag),
+      event_tags: undefined,
+    }
 
-  res.json(normalized)
+    if (filterVisibleRecords([normalized], req.userId, friendIds).length === 0) {
+      res.status(404).json({ error: 'Event not found.' })
+      return
+    }
+
+    res.json(normalized)
+  } catch (visibilityError) {
+    res.status(500).json({ error: visibilityError instanceof Error ? visibilityError.message : 'Failed to apply visibility.' })
+  }
 })
 
 // POST /events — create event (auth required)
@@ -171,9 +190,20 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
 router.post('/:id/join', requireAuth, async (req: AuthRequest, res: Response) => {
   const { data: event } = await supabase
     .from('events')
-    .select('capacity')
+    .select('capacity, creator_id, visibility')
     .eq('id', req.params.id)
     .single()
+
+  if (!event) {
+    res.status(404).json({ error: 'Event not found.' })
+    return
+  }
+
+  const friendIds = await getFriendIds(req.userId)
+  if (!canViewRecord({ ...event, visibility: normalizeVisibility(event.visibility) }, req.userId, friendIds)) {
+    res.status(404).json({ error: 'Event not found.' })
+    return
+  }
 
   if (event?.capacity !== null && event?.capacity !== undefined) {
     const { count } = await supabase

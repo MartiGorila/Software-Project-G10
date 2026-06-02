@@ -30,14 +30,18 @@ import {
     getCurrentUser,
     getEvents,
     getFriends,
+    getFriendRequests,
     getPlans,
     getTags,
-    addFriend,
+    acceptFriendRequest,
+    cancelFriendRequest,
     joinEvent,
     leaveEvent,
     deleteEvent,
     deletePlan,
+    rejectFriendRequest,
     removeFriend,
+    sendFriendRequest,
     login,
     logout as apiLogout,
     register,
@@ -45,6 +49,7 @@ import {
     ApiPlan,
     AuthUser,
     Friend,
+    FriendRequestsResponse,
     SuggestionResult,
     Tag,
 } from './api'
@@ -76,8 +81,13 @@ function App() {
     const [allTags, setAllTags] = useState<Tag[]>([])
     const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
     const [friends, setFriends] = useState<Friend[]>([])
+    const [friendRequests, setFriendRequests] = useState<FriendRequestsResponse>({ incoming: [], outgoing: [] })
     const [friendsLoading, setFriendsLoading] = useState(false)
     const [friendsError, setFriendsError] = useState('')
+    const [friendNotice, setFriendNotice] = useState('')
+    const [friendNoticeExiting, setFriendNoticeExiting] = useState(false)
+    const [incomingNoticeExiting, setIncomingNoticeExiting] = useState(false)
+    const [dismissedIncomingCount, setDismissedIncomingCount] = useState(0)
     const [isLoading, setIsLoading] = useState(true)
     const [showSplash, setShowSplash] = useState(true)
     const [splashExiting, setSplashExiting] = useState(false)
@@ -107,10 +117,20 @@ function App() {
     const [showSavedContent, setShowSavedContent] = useState(false)
     const [savedContent, setSavedContent] = useState<SavedContentState>(emptySavedContent)
     const friendIds = useMemo(() => new Set(friends.map((friend) => friend.id)), [friends])
+    const incomingRequestByUserId = useMemo(
+        () => new Map(friendRequests.incoming.map((request) => [request.requester_id, request])),
+        [friendRequests.incoming],
+    )
+    const outgoingRequestByUserId = useMemo(
+        () => new Map(friendRequests.outgoing.map((request) => [request.recipient_id, request])),
+        [friendRequests.outgoing],
+    )
     const savedPlanIds = useMemo(
         () => new Set(savedContent.plans.map((plan) => plan.id)),
         [savedContent.plans],
     )
+    const incomingRequestCount = friendRequests.incoming.length
+    const showIncomingRequestNotice = Boolean(currentUser && incomingRequestCount > 0 && incomingRequestCount !== dismissedIncomingCount)
 
     // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -150,6 +170,20 @@ function App() {
         }
     }
 
+    const refreshFriendRequests = async () => {
+        if (!getAuthToken()) {
+            setFriendRequests({ incoming: [], outgoing: [] })
+            return
+        }
+
+        try {
+            const data = await getFriendRequests()
+            setFriendRequests(data)
+        } catch {
+            setFriendRequests({ incoming: [], outgoing: [] })
+        }
+    }
+
     useEffect(() => {
         const fadeTimer = window.setTimeout(() => setSplashExiting(true), 2850)
         const removeTimer = window.setTimeout(() => setShowSplash(false), 3200)
@@ -178,7 +212,7 @@ function App() {
                         const user = await getCurrentUser()
                         setCurrentUser(user)
                         setSavedContent(loadSavedContent(user.id))
-                        await refreshFriends()
+                        await Promise.all([refreshFriends(), refreshFriendRequests()])
                         const joined = new Set(
                             eventsData
                                 .filter((e) => e.event_participants?.some((p) => p.user_id === user.id))
@@ -240,7 +274,7 @@ function App() {
             setShowLoginForm(false)
             setLoginForm({ email: '', password: '' })
             await refreshData(data.user)
-            await refreshFriends()
+            await refreshSocialState()
         } catch (err) {
             setLoginError(err instanceof Error ? err.message : 'Login failed.')
         }
@@ -261,7 +295,7 @@ function App() {
             setRegisterForm({ username: '', email: '', password: '' })
             setAuthMode('login')
             await refreshData(data.user)
-            await refreshFriends()
+            await refreshSocialState()
         } catch (err) {
             setLoginError(err instanceof Error ? err.message : 'Registration failed.')
         }
@@ -271,6 +305,9 @@ function App() {
         apiLogout()
         setCurrentUser(null)
         setFriends([])
+        setFriendRequests({ incoming: [], outgoing: [] })
+        setFriendNotice('')
+        setDismissedIncomingCount(0)
         setFriendsError('')
         setJoinedEventIds(new Set())
         setShowLoginForm(false)
@@ -419,18 +456,83 @@ function App() {
         getCurrentUser().then(setCurrentUser).catch(console.error)
     }
 
-    const handleAddFriend = async (userId: string) => {
-        await addFriend(userId)
-        await refreshFriends()
+    const refreshSocialState = async () => {
+        await Promise.all([refreshFriends(), refreshFriendRequests()])
+    }
+
+    const showFriendNotice = (message: string) => {
+        setFriendNotice(message)
+        setFriendNoticeExiting(false)
+        window.setTimeout(() => {
+            setFriendNoticeExiting(true)
+            window.setTimeout(() => {
+                setFriendNotice((current) => current === message ? '' : current)
+                setFriendNoticeExiting(false)
+            }, 320)
+        }, 3000)
+    }
+
+    const dismissIncomingNotice = () => {
+        if (!showIncomingRequestNotice || incomingNoticeExiting) return
+        setIncomingNoticeExiting(true)
+        window.setTimeout(() => {
+            setDismissedIncomingCount(incomingRequestCount)
+            setIncomingNoticeExiting(false)
+        }, 320)
+    }
+
+    const dismissFriendNotices = () => {
+        if (friendNotice && !friendNoticeExiting) {
+            setFriendNoticeExiting(true)
+            window.setTimeout(() => {
+                setFriendNotice('')
+                setFriendNoticeExiting(false)
+            }, 320)
+        }
+        dismissIncomingNotice()
+    }
+
+    useEffect(() => {
+        if (!showIncomingRequestNotice) return
+
+        const timer = window.setTimeout(() => {
+            dismissIncomingNotice()
+        }, 7000)
+
+        return () => window.clearTimeout(timer)
+    }, [incomingRequestCount, showIncomingRequestNotice, incomingNoticeExiting])
+
+    const handleSendFriendRequest = async (userId: string) => {
+        await sendFriendRequest(userId)
+        await refreshSocialState()
+        showFriendNotice('Friend request sent.')
+    }
+
+    const handleAcceptFriendRequest = async (requestId: string) => {
+        await acceptFriendRequest(requestId)
+        await refreshSocialState()
+        showFriendNotice('Friend request accepted.')
+    }
+
+    const handleRejectFriendRequest = async (requestId: string) => {
+        await rejectFriendRequest(requestId)
+        await refreshSocialState()
+        showFriendNotice('Friend request rejected.')
+    }
+
+    const handleCancelFriendRequest = async (requestId: string) => {
+        await cancelFriendRequest(requestId)
+        await refreshSocialState()
+        showFriendNotice('Friend request cancelled.')
     }
 
     const handleRemoveFriend = async (userId: string) => {
         await removeFriend(userId)
-        await refreshFriends()
+        await refreshSocialState()
     }
 
     return (
-        <div className="map-shell">
+        <div className="map-shell" onPointerDown={dismissFriendNotices}>
             {showSplash && (
                 <div className={`rove-splash ${splashExiting ? 'rove-splash--exit' : ''}`} aria-label="Loading Rove">
                     <div className="rove-splash__content">
@@ -453,6 +555,27 @@ function App() {
                 }}
                 onLogout={handleLogout}
             />
+
+            {(showIncomingRequestNotice || friendNotice) && (
+                <div className="friend-notice-stack" aria-live="polite" onPointerDown={(event) => event.stopPropagation()}>
+                    {showIncomingRequestNotice && (
+                        <a
+                            className={`friend-notice friend-notice--request ${incomingNoticeExiting ? 'friend-notice--exit' : ''}`}
+                            href="#friends-panel"
+                            onClick={dismissIncomingNotice}
+                        >
+                            {incomingRequestCount === 1
+                                ? 'You have 1 new friend request'
+                                : `You have ${incomingRequestCount} new friend requests`}
+                        </a>
+                    )}
+                    {friendNotice && (
+                        <div className={`friend-notice friend-notice--success ${friendNoticeExiting ? 'friend-notice--exit' : ''}`}>
+                            {friendNotice}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {showExplore && (
                 <ExplorePanel
@@ -640,10 +763,14 @@ function App() {
                     <SubscriptionPanel
                         subscribedEvents={subscribedEvents}
                         friends={friends}
+                        friendRequests={friendRequests}
                         friendsLoading={friendsLoading}
                         friendsError={friendsError}
                         onRemoveSubscription={handleLeave}
                         onRemoveFriend={handleRemoveFriend}
+                        onAcceptFriendRequest={handleAcceptFriendRequest}
+                        onRejectFriendRequest={handleRejectFriendRequest}
+                        onCancelFriendRequest={handleCancelFriendRequest}
                         onViewUserProfile={setViewingUserId}
                         currentUser={currentUser}
                     />
@@ -670,15 +797,13 @@ function App() {
             {/* Create panel (left side) */}
             {clickPosition && currentUser && (
                 <div className="create-panel-overlay">
-                    <div style={{ padding: '1.25rem' }}>
-                        <CreatePanel
-                            position={clickPosition}
-                            availableTags={visibleTags}
-                            onEventCreated={handleEventCreated}
-                            onPlanCreated={handlePlanCreated}
-                            onCancel={() => setClickPosition(null)}
-                        />
-                    </div>
+                    <CreatePanel
+                        position={clickPosition}
+                        availableTags={visibleTags}
+                        onEventCreated={handleEventCreated}
+                        onPlanCreated={handlePlanCreated}
+                        onCancel={() => setClickPosition(null)}
+                    />
                 </div>
             )}
 
@@ -710,7 +835,10 @@ function App() {
                     userId={viewingUserId}
                     currentUserId={currentUser?.id ?? null}
                     friendIds={friendIds}
-                    onAddFriend={handleAddFriend}
+                    incomingRequest={incomingRequestByUserId.get(viewingUserId) ?? null}
+                    outgoingRequest={outgoingRequestByUserId.get(viewingUserId) ?? null}
+                    onSendFriendRequest={handleSendFriendRequest}
+                    onAcceptFriendRequest={handleAcceptFriendRequest}
                     onRemoveFriend={handleRemoveFriend}
                     onClose={() => setViewingUserId(null)}
                 />

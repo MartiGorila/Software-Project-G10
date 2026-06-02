@@ -29,9 +29,24 @@ CREATE TABLE public.events (
   event_time timestamp with time zone NOT NULL,
   budget numeric,
   capacity integer,
+  visibility text NOT NULL DEFAULT 'public',
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT events_pkey PRIMARY KEY (id),
-  CONSTRAINT events_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id)
+  CONSTRAINT events_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id),
+  CONSTRAINT events_visibility_check CHECK (visibility IN ('public', 'friends', 'private'))
+);
+CREATE TABLE public.friend_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  requester_id uuid NOT NULL,
+  recipient_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT friend_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT friend_requests_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES public.users(id) ON DELETE CASCADE,
+  CONSTRAINT friend_requests_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.users(id) ON DELETE CASCADE,
+  CONSTRAINT friend_requests_requester_recipient_key UNIQUE (requester_id, recipient_id),
+  CONSTRAINT friend_requests_status_check CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled'))
 );
 CREATE TABLE public.friendships (
   user_id uuid NOT NULL,
@@ -56,9 +71,11 @@ CREATE TABLE public.plans (
   lat double precision NOT NULL,
   lng double precision NOT NULL,
   budget numeric,
+  visibility text NOT NULL DEFAULT 'public',
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT plans_pkey PRIMARY KEY (id),
-  CONSTRAINT plans_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id)
+  CONSTRAINT plans_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id),
+  CONSTRAINT plans_visibility_check CHECK (visibility IN ('public', 'friends', 'private'))
 );
 CREATE TABLE public.tags (
   id integer NOT NULL DEFAULT nextval('tags_id_seq'::regclass),

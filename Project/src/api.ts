@@ -38,6 +38,8 @@ export type Tag = {
     name: string
 }
 
+export type Visibility = 'public' | 'friends' | 'private'
+
 export type AuthUser = {
     id: string
     username: string
@@ -56,6 +58,7 @@ export type ApiEvent = {
     event_time: string
     budget: number | null
     capacity: number | null
+    visibility: Visibility
     created_at: string
     creator: { id: string; username: string }
     event_participants?: {
@@ -74,6 +77,7 @@ export type ApiPlan = {
     lat: number
     lng: number
     budget: number | null
+    visibility: Visibility
     created_at: string
     creator: { id: string; username: string }
     tags?: Tag[]
@@ -94,6 +98,22 @@ export type Friend = {
     avatar_url: string | null
 }
 
+export type FriendRequest = {
+    id: string
+    requester_id: string
+    recipient_id: string
+    status: 'pending' | 'accepted' | 'rejected' | 'cancelled'
+    created_at: string
+    updated_at: string | null
+    requester?: Friend
+    recipient?: Friend
+}
+
+export type FriendRequestsResponse = {
+    incoming: FriendRequest[]
+    outgoing: FriendRequest[]
+}
+
 export type SuggestionResult = {
     type: 'event' | 'plan'
     id: string
@@ -107,6 +127,7 @@ export type SuggestionResult = {
     distance_km: number
     reasons: string[]
     event_time?: string
+    visibility: Visibility
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -170,6 +191,26 @@ export function addFriend(friendId: string): Promise<{ ok: true }> {
 
 export function removeFriend(friendId: string): Promise<void> {
     return apiFetch<void>(`/users/me/friends/${friendId}`, { method: 'DELETE' })
+}
+
+export function getFriendRequests(): Promise<FriendRequestsResponse> {
+    return apiFetch<FriendRequestsResponse>('/users/me/friend-requests')
+}
+
+export function sendFriendRequest(userId: string): Promise<FriendRequest> {
+    return apiFetch<FriendRequest>(`/users/me/friend-requests/${userId}`, { method: 'POST' })
+}
+
+export function acceptFriendRequest(requestId: string): Promise<{ ok: true }> {
+    return apiFetch<{ ok: true }>(`/users/me/friend-requests/${requestId}/accept`, { method: 'POST' })
+}
+
+export function rejectFriendRequest(requestId: string): Promise<{ ok: true }> {
+    return apiFetch<{ ok: true }>(`/users/me/friend-requests/${requestId}/reject`, { method: 'POST' })
+}
+
+export function cancelFriendRequest(requestId: string): Promise<void> {
+    return apiFetch<void>(`/users/me/friend-requests/${requestId}`, { method: 'DELETE' })
 }
 
 export async function uploadAvatar(file: File): Promise<AuthUser> {
@@ -271,6 +312,7 @@ export function createEvent(body: {
     event_time: string
     budget?: number
     capacity?: number
+    visibility?: Visibility
     tag_ids?: number[]
 }): Promise<ApiEvent> {
     return apiFetch<ApiEvent>('/events', {
@@ -289,6 +331,7 @@ export function updateEvent(
         event_time: string
         budget: number
         capacity: number
+        visibility: Visibility
     }>,
 ): Promise<ApiEvent> {
     return apiFetch<ApiEvent>(`/events/${id}`, {
@@ -325,6 +368,7 @@ export function createPlan(body: {
     lat: number
     lng: number
     budget?: number
+    visibility?: Visibility
     tag_ids?: number[]
 }): Promise<ApiPlan> {
     return apiFetch<ApiPlan>('/plans', {
@@ -341,6 +385,7 @@ export function updatePlan(
         lat: number
         lng: number
         budget: number
+        visibility: Visibility
     }>,
 ): Promise<ApiPlan> {
     return apiFetch<ApiPlan>(`/plans/${id}`, {

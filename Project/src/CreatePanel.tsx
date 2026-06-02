@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import { createEvent, createPlan, ApiEvent, ApiPlan, Tag } from './api'
+import { createEvent, createPlan, ApiEvent, ApiPlan, Tag, Visibility } from './api'
 
 type Props = {
     position: [number, number] | null
@@ -22,6 +22,7 @@ export default function CreatePanel({
     const [eventTime, setEventTime] = useState('')
     const [capacity, setCapacity] = useState('')
     const [budget, setBudget] = useState('')
+    const [visibility, setVisibility] = useState<Visibility>('public')
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -58,6 +59,7 @@ export default function CreatePanel({
                     event_time: new Date(eventTime).toISOString(),
                     capacity: capacity ? parseInt(capacity) : undefined,
                     budget: normalizedBudget,
+                    visibility,
                     tag_ids,
                 })
                 onEventCreated(event)
@@ -68,6 +70,7 @@ export default function CreatePanel({
                     lat: position[0],
                     lng: position[1],
                     budget: normalizedBudget,
+                    visibility,
                     tag_ids,
                 })
                 onPlanCreated(plan)
@@ -77,6 +80,7 @@ export default function CreatePanel({
             setEventTime('')
             setCapacity('')
             setBudget('')
+            setVisibility('public')
             setSelectedTagIds(new Set())
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -170,6 +174,27 @@ export default function CreatePanel({
                         placeholder="0 for free"
                     />
                     <span className="create-panel__hint">Leave blank to mark it as free.</span>
+                </div>
+
+                <div className="create-panel__field">
+                    <label className="create-panel__label">Visibility</label>
+                    <div className="create-panel__visibility">
+                        {([
+                            ['public', 'Public', 'Everyone can discover it'],
+                            ['friends', 'Friends', 'Only accepted friends can discover it'],
+                            ['private', 'Private', 'Only you can see it'],
+                        ] as const).map(([value, label, hint]) => (
+                            <button
+                                key={value}
+                                type="button"
+                                className={`create-panel__visibility-btn ${visibility === value ? 'create-panel__visibility-btn--active' : ''}`}
+                                onClick={() => setVisibility(value)}
+                            >
+                                <strong>{label}</strong>
+                                <span>{hint}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {availableTags.length > 0 && (

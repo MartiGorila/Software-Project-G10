@@ -21,3 +21,20 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
     res.status(401).json({ error: 'Token expired or invalid.' })
   }
 }
+
+export function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction): void {
+  const header = req.headers.authorization
+  if (!header || !header.startsWith('Bearer ')) {
+    next()
+    return
+  }
+
+  const token = header.slice(7)
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string }
+    req.userId = payload.userId
+  } catch {
+    // Public routes should still work with an absent/invalid optional token.
+  }
+  next()
+}

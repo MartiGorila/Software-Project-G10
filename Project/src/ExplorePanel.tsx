@@ -53,6 +53,12 @@ function formatEventTime(iso: string) {
     })
 }
 
+function formatVisibility(value: ApiEvent['visibility'] | ApiPlan['visibility']) {
+    if (value === 'friends') return 'Friends only'
+    if (value === 'private') return 'Private'
+    return 'Public'
+}
+
 function matchesSelectedTags(itemTags: Tag[] | undefined, selectedTagIds: Set<number>) {
     if (selectedTagIds.size === 0) return true
     const itemTagIds = new Set((itemTags ?? []).map((tag) => tag.id))
@@ -172,6 +178,7 @@ export default function ExplorePanel({
                             <p>{selectedItem.item.description ?? 'No description yet.'}</p>
                             <div className="explore-card__meta">
                                 <span>{formatBudget(selectedItem.item.budget)}</span>
+                                <span>{formatVisibility(selectedItem.item.visibility)}</span>
                                 {selectedItem.type === 'event' && <span>{formatEventTime(selectedItem.item.event_time)}</span>}
                             </div>
                             {(selectedItem.item.tags?.length ?? 0) > 0 && (
@@ -305,9 +312,10 @@ export default function ExplorePanel({
                                             </div>
                                             <h3>{result.item.name}</h3>
                                             <div className="explore-card__meta">
-                                                <span>{formatBudget(result.item.budget)}</span>
-                                                {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
-                                            </div>
+                                            <span>{formatBudget(result.item.budget)}</span>
+                                            <span>{formatVisibility(result.item.visibility)}</span>
+                                            {result.type === 'event' && <span>{formatEventTime(result.item.event_time)}</span>}
+                                        </div>
                                             {visibleTags.length > 0 && (
                                                 <div className="explore-card__tags">
                                                     {visibleTags.map((tag) => (
