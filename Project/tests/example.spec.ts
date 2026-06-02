@@ -88,35 +88,20 @@ test.describe('Map App - UI Tests', () => {
         await loginButton.click()
         await expect(loginForm).not.toBeVisible()
     })
-    test('should successfully log in with valid credentials', async ({ page }) => {
-        // 1. Navigate to your application's URL
-        // await page.goto('https://your-app-url.com');
+    test('should successfully log in with generated credentials', async ({ page, authenticatedUser }) => {
+        const loginButton = page.locator('button:has-text("Login / Register")')
+        await loginButton.click()
 
-        // 2. Click the button to reveal the login form
-        const loginButton = page.locator('button:has-text("Login / Register")');
-        await loginButton.click();
+        const loginForm = page.locator('.login-form')
+        const emailInput = page.locator('input[type="email"]')
+        const passwordInput = page.locator('input[type="password"]')
 
-        // 3. Define the form elements
-        const loginForm = page.locator('.login-form');
-        const usernameInput = page.locator('input[type="email"]'); // Adjust selector to match your HTML
-        const passwordInput = page.locator('input[type="password"]'); // Adjust selector to match your HTML
-        //const submitButton = page.locator('button[type="submit"]'); // Adjust selector to match your HTML
+        await expect(loginForm).toBeVisible()
+        await emailInput.fill(authenticatedUser.email)
+        await passwordInput.fill(authenticatedUser.password)
 
-        // Ensure the form is visible before interacting with it
-        await expect(loginForm).toBeVisible();
-
-        // 4. Fill in the mock credentials
-        await usernameInput.fill('marti.delmoral01@universitat.upf.edu');
-        await passwordInput.fill('examplePassword');
-        const submitButton = page.locator('button:has-text("Sign in")');
-        //await loginButton.click();
-        // 5. Submit the form
-        await submitButton.click();
-
-        // 6. Assert successful login
-        // Replace '.user-dashboard' or 'text=Welcome' with an actual element that appears only after logging in
-        // const dashboardElement = page.locator('.user-dashboard');
-        // await expect(dashboardElement).toBeVisible();
-    });
+        await page.locator('button:has-text("Sign in")').click()
+        await expect(loginForm).not.toBeVisible({ timeout: 10000 })
+    })
 
 })

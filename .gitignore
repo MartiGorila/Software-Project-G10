@@ -7,3 +7,12 @@ event_create_response.json
 .env
 node_modules/
 dist/
+
+# Playwright generated artifacts
+Project/test-results/
+Project/playwright-report/
+Project/.playwright/
+Project/**/*.trace.zip
+Project/**/*.webm
+Project/**/*.mp4
+Project/**/*-failed-*.png

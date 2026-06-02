@@ -116,7 +116,7 @@ export async function loginUser(page: any, user: TestUser) {
         // Store token in localStorage via page
         await page.evaluate(
             (token: string) => {
-                localStorage.setItem('auth_token', token)
+                localStorage.setItem('token', token)
             },
             user.token,
         )
@@ -129,4 +129,3 @@ export async function loginUser(page: any, user: TestUser) {
 }
 
 export { expect }
-
