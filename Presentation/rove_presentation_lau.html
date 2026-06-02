@@ -134,6 +134,28 @@ p,.lead{font-size:24px;line-height:1.42;color:var(--muted);margin:18px 0 0}
   position: relative;
   z-index: 10;
 }
+.planner-algorithm-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:stretch;margin-top:26px}
+.algorithm-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.algorithm-step{background:#fff;border:1px solid #dbe5f2;border-radius:18px;padding:18px 16px;box-shadow:0 14px 36px rgba(15,23,42,.08);min-height:132px}
+.algorithm-step .num{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2563eb,#22c55e);color:#fff;font-size:15px;line-height:1;font-weight:950;margin-bottom:12px;box-shadow:0 8px 18px rgba(37,99,235,.18)}
+.algorithm-step b{display:block;color:#10162d;font-size:18px;line-height:1.12;margin-bottom:8px}
+.algorithm-step p{margin:0;color:#62708a;font-size:15px;line-height:1.28;font-weight:750}
+.algorithm-side{display:grid;gap:14px}
+.algorithm-card{background:#fff;border:1px solid #dbe5f2;border-radius:22px;padding:24px;box-shadow:0 18px 48px rgba(15,23,42,.09)}
+.algorithm-card h3{margin:0 0 10px;color:#10162d;font-size:25px}
+.algorithm-card p{margin:0;color:#62708a;font-size:20px;line-height:1.32;font-weight:780}
+.algorithm-card .pill-row{margin-top:18px;display:flex;gap:9px;flex-wrap:wrap}
+.future-list{margin:12px 0 0;padding-left:18px;color:#62708a;font-size:18px;line-height:1.35;font-weight:800}
+.future-list li{margin:7px 0}
+@media(max-width:1000px){.planner-algorithm-grid{grid-template-columns:1fr}.algorithm-flow{grid-template-columns:1fr 1fr}.algorithm-step{min-height:auto}}
+.demo-value-list{display:grid;gap:9px;margin-top:14px}
+.demo-value-row{display:flex;align-items:flex-start;gap:10px;color:#62708a;font-size:17px;line-height:1.28;font-weight:820}
+.demo-value-row span{flex:0 0 auto;display:inline-grid;place-items:center;min-width:30px;height:24px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:950}
+.final-slide .huge{max-width:1000px}
+.final-slide .final-stat-grid{margin-top:24px;max-width:980px}
+.final-slide .final-stat-grid .stat{min-height:126px;padding:22px}
+.final-slide .repo-wrap{margin-top:24px}
+.final-slide .lead{margin-top:18px;max-width:980px}
 </style>
 </head>
 <body>
@@ -237,6 +259,37 @@ p,.lead{font-size:24px;line-height:1.42;color:var(--muted);margin:18px 0 0}
         <div class="card tight"><span class="pill purple">Suggestions</span><h3>Recommended picks</h3><p>Uses filters, tags, budget, distance, and friend attendance to rank activities.</p></div>
         <div class="card tight"><span class="pill green">Planner</span><h3>Route builder</h3><p>Creates same-day routes from matching events and plans, respecting time, budget, and distance.</p></div>
         <div class="card tight"><span class="pill">Personal context</span><h3>Useful results</h3><p>The route is built from what is nearby and relevant to the user.</p></div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="slide" data-note="Clarify that Planner is deterministic, not an AI wrapper: it filters visible content, scores candidates, keeps timed events on the same day, orders them chronologically, inserts plans by distance cost, and explains every stop.">
+    <div class="eyebrow green">Planner algorithm</div><h2 class="h1">Planner is deterministic, not an AI wrapper.</h2>
+    <div class="planner-algorithm-grid">
+      <div class="algorithm-flow">
+        <div class="algorithm-step"><div class="num">1</div><b>Filter inputs</b><p>Visibility, budget, tags, and the selected date range define eligible items.</p></div>
+        <div class="algorithm-step"><div class="num">2</div><b>Group days</b><p>Timed events are grouped by same-day routes before ordering begins.</p></div>
+        <div class="algorithm-step"><div class="num">3</div><b>Score candidates</b><p>Distance, tag fit, budget fit, and friend/social context shape ranking.</p></div>
+        <div class="algorithm-step"><div class="num">4</div><b>Order events</b><p>Timed events are always placed chronologically, never backwards.</p></div>
+        <div class="algorithm-step"><div class="num">5</div><b>Insert plans</b><p>Untimed plans are inserted where they add the lowest route distance cost.</p></div>
+        <div class="algorithm-step"><div class="num">6</div><b>Explain route</b><p>The output is a half-day or full-day route with clear reasons per stop.</p></div>
+      </div>
+      <div class="algorithm-side">
+        <div class="algorithm-card">
+          <h3>No black box</h3>
+          <p>Planner uses predictable rules and transparent scoring, so the live demo is stable and every recommendation can be explained.</p>
+          <div class="pill-row"><span class="pill">Deterministic</span><span class="pill green">Same-day</span><span class="pill purple">Reasoned route</span></div>
+        </div>
+        <div class="algorithm-card">
+          <h3>Why this matters in the demo</h3>
+          <div class="demo-value-list">
+            <div class="demo-value-row"><span>✓</span><div><b>Stable:</b> same inputs produce explainable routes.</div></div>
+            <div class="demo-value-row"><span>✓</span><div><b>Transparent:</b> every stop has a reason.</div></div>
+            <div class="demo-value-row"><span>✓</span><div><b>Demo-safe:</b> no external AI/API dependency.</div></div>
+            <div class="demo-value-row"><span>✓</span><div><b>Product-ready:</b> feels intelligent without hiding the logic.</div></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
