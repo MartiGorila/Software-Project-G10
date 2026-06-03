@@ -3016,7 +3016,7 @@
 
 .planner-controls {
     display: grid;
-    grid-template-columns: minmax(90px, 0.65fr) minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(140px, 1fr);
+    grid-template-columns: minmax(82px, 0.65fr) minmax(104px, 0.75fr) minmax(118px, 0.9fr) minmax(132px, 1fr) minmax(140px, 1fr) minmax(118px, 0.95fr);
     gap: 0.55rem;
     align-items: end;
 }

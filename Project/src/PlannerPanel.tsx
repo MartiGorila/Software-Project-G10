@@ -5,6 +5,8 @@ import type { SavedRouteDraft } from './savedContent'
 
 type PlannerType = 'both' | 'events' | 'plans'
 type PlanLength = 'quick' | 'half-day' | 'full-day'
+type PlannerDateRange = 'anytime' | 'today' | 'weekend' | 'this-week' | 'next-week' | 'next-month'
+type PlannerRouteStyle = 'best' | 'social'
 
 type PlannerItem = {
     type: 'event' | 'plan'
@@ -16,6 +18,9 @@ type PlannerItem = {
     budget: number | null
     tags: Tag[]
     eventTime?: string
+    creatorId: string
+    friendAttending: boolean
+    createdByFriend: boolean
     distanceFromCenter: number
     score: number
     reasons: string[]
@@ -35,6 +40,7 @@ type PlannerPanelProps = {
     onOpenEventDetails: (eventId: string) => void
     onCenterOnMap: (position: [number, number]) => void
     isLoggedIn: boolean
+    friendIds: Set<string>
     onSaveRoute: (route: SavedRouteDraft) => { saved: boolean; message: string }
 }
 
@@ -89,6 +95,53 @@ function formatRouteDate(dateKey: string) {
     })
 }
 
+function startOfLocalDay(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function addDays(date: Date, days: number) {
+    const next = new Date(date)
+    next.setDate(next.getDate() + days)
+    return next
+}
+
+function getDateRange(range: PlannerDateRange): { start: Date; end: Date; reason: string } | null {
+    const today = startOfLocalDay(new Date())
+    if (range === 'anytime') return null
+    if (range === 'today') {
+        return { start: today, end: addDays(today, 1), reason: 'scheduled today' }
+    }
+
+    const day = today.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    const thisMonday = addDays(today, mondayOffset)
+
+    if (range === 'this-week') {
+        return { start: thisMonday, end: addDays(thisMonday, 7), reason: 'within this week' }
+    }
+
+    if (range === 'weekend') {
+        const saturdayOffset = day === 0 ? -1 : 6 - day
+        const saturday = addDays(today, saturdayOffset)
+        return { start: saturday, end: addDays(saturday, 2), reason: 'within this weekend' }
+    }
+
+    if (range === 'next-week') {
+        const nextMonday = addDays(thisMonday, 7)
+        return { start: nextMonday, end: addDays(nextMonday, 7), reason: 'within next week' }
+    }
+
+    const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    const followingMonthStart = new Date(today.getFullYear(), today.getMonth() + 2, 1)
+    return { start: nextMonthStart, end: followingMonthStart, reason: 'within next month' }
+}
+
+function isEventInDateRange(item: PlannerItem, range: { start: Date; end: Date } | null) {
+    if (item.type !== 'event' || !range) return true
+    const time = eventTimeMs(item)
+    return time !== null && time >= range.start.getTime() && time < range.end.getTime()
+}
+
 function getPreview(description: string | null) {
     if (!description) return 'No description yet.'
     return description.length > 120 ? `${description.slice(0, 117)}...` : description
@@ -103,6 +156,7 @@ function scoreItem(
     radiusKm: number,
     selectedTagIds: Set<number>,
     budgetMax: number | null,
+    routeStyle: PlannerRouteStyle,
 ): Pick<PlannerItem, 'score' | 'reasons'> {
     const reasons = [`${item.distanceFromCenter.toFixed(1)}km from the map center`]
     const distanceScore = Math.max(0, 30 * (1 - item.distanceFromCenter / radiusKm))
@@ -139,8 +193,21 @@ function scoreItem(
         }
     }
 
+    let socialScore = 0
+    if (routeStyle === 'social') {
+        if (item.friendAttending) {
+            socialScore += 18
+            reasons.push('friend attending')
+        }
+        if (item.createdByFriend) {
+            socialScore += 14
+            reasons.push('created by a friend')
+        }
+        if (socialScore > 0) reasons.push('social pick')
+    }
+
     return {
-        score: Math.round((distanceScore + tagScore + budgetScore + timeScore) * 100) / 100,
+        score: Math.round((distanceScore + tagScore + budgetScore + timeScore + socialScore) * 100) / 100,
         reasons,
     }
 }
@@ -357,12 +424,15 @@ export default function PlannerPanel({
     onOpenEventDetails,
     onCenterOnMap,
     isLoggedIn,
+    friendIds,
     onSaveRoute,
 }: PlannerPanelProps) {
     const [radiusKm, setRadiusKm] = useState('10')
     const [budgetMax, setBudgetMax] = useState('')
     const [typeMix, setTypeMix] = useState<PlannerType>('both')
     const [planLength, setPlanLength] = useState<PlanLength>('quick')
+    const [dateRange, setDateRange] = useState<PlannerDateRange>('anytime')
+    const [routeStyle, setRouteStyle] = useState<PlannerRouteStyle>('best')
     const [selectedTagIds, setSelectedTagIds] = useState<Set<number>>(new Set())
     const [saveMessage, setSaveMessage] = useState('')
 
@@ -373,6 +443,7 @@ export default function PlannerPanel({
 
     const routeResult = useMemo(() => {
         const selectedTags = selectedTagIds
+        const selectedDateRange = getDateRange(dateRange)
         const normalized: PlannerItem[] = [
             ...(typeMix === 'plans' ? [] : events.filter(hasValidCoordinates).map((event) => {
                 const base = {
@@ -385,9 +456,15 @@ export default function PlannerPanel({
                     budget: event.budget,
                     tags: event.tags ?? [],
                     eventTime: event.event_time,
+                    creatorId: event.creator_id,
+                    friendAttending: (event.event_participants ?? []).some((participant) => friendIds.has(participant.user_id)),
+                    createdByFriend: friendIds.has(event.creator_id),
                     distanceFromCenter: distanceKm(mapCenter, [event.lat, event.lng]),
                 }
-                return { ...base, ...scoreItem(base, safeRadius, selectedTags, safeBudgetMax) }
+                const scored = { ...base, ...scoreItem(base, safeRadius, selectedTags, safeBudgetMax, routeStyle) }
+                return selectedDateRange && isEventInDateRange(scored, selectedDateRange)
+                    ? withUniqueReason(scored, selectedDateRange.reason)
+                    : scored
             })),
             ...(typeMix === 'events' ? [] : plans.filter(hasValidCoordinates).map((plan) => {
                 const base = {
@@ -399,14 +476,18 @@ export default function PlannerPanel({
                     lng: plan.lng,
                     budget: plan.budget,
                     tags: plan.tags ?? [],
+                    creatorId: plan.creator_id,
+                    friendAttending: false,
+                    createdByFriend: friendIds.has(plan.creator_id),
                     distanceFromCenter: distanceKm(mapCenter, [plan.lat, plan.lng]),
                 }
-                return { ...base, ...scoreItem(base, safeRadius, selectedTags, safeBudgetMax) }
+                return { ...base, ...scoreItem(base, safeRadius, selectedTags, safeBudgetMax, routeStyle) }
             })),
         ]
 
         const candidates = normalized
             .filter((item) => item.distanceFromCenter <= safeRadius)
+            .filter((item) => isEventInDateRange(item, selectedDateRange))
             .filter((item) => {
                 if (selectedTags.size === 0) return true
                 const itemTagIds = new Set(item.tags.map((tag) => tag.id))
@@ -422,7 +503,7 @@ export default function PlannerPanel({
             route: buildRoute(sameDayCandidates, mapCenter, lengthToStops[planLength], safeBudgetMax),
             routeDateLabel: bestEventDate ? formatRouteDate(bestEventDate.dateKey) : '',
         }
-    }, [events, mapCenter, planLength, plans, safeBudgetMax, safeRadius, selectedTagIds, typeMix])
+    }, [dateRange, events, friendIds, mapCenter, planLength, plans, routeStyle, safeBudgetMax, safeRadius, selectedTagIds, typeMix])
 
     const { route, routeDateLabel } = routeResult
     const knownBudget = route.reduce((total, stop) => total + (stop.budget ?? 0), 0)
@@ -509,6 +590,24 @@ export default function PlannerPanel({
                                     <option value="both">Both</option>
                                     <option value="events">Events only</option>
                                     <option value="plans">Plans only</option>
+                                </select>
+                            </label>
+                            <label className="planner-field">
+                                <span>When?</span>
+                                <select value={dateRange} onChange={(event) => setDateRange(event.target.value as PlannerDateRange)}>
+                                    <option value="anytime">Anytime</option>
+                                    <option value="today">Today</option>
+                                    <option value="weekend">This weekend</option>
+                                    <option value="this-week">This week</option>
+                                    <option value="next-week">Next week</option>
+                                    <option value="next-month">Next month</option>
+                                </select>
+                            </label>
+                            <label className="planner-field">
+                                <span>Route style</span>
+                                <select value={routeStyle} onChange={(event) => setRouteStyle(event.target.value as PlannerRouteStyle)}>
+                                    <option value="best">Best match</option>
+                                    <option value="social">Social route</option>
                                 </select>
                             </label>
                             <label className="planner-field">
