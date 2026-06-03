@@ -606,6 +606,7 @@ function App() {
                     onOpenEventDetails={handleSelectEvent}
                     onCenterOnMap={handleCenterOnMap}
                     isLoggedIn={!!currentUser}
+                    friendIds={friendIds}
                     onSaveRoute={handleSaveRoute}
                 />
             )}
