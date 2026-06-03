@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import MapMarkers from './MapMarkers'
 import EventDetailsSidebar from './EventDetailsSidebar'
 import CreatePanel from './CreatePanel'
@@ -56,6 +56,7 @@ import {
 import { sortTagsForDisplay } from './categoryIcons'
 
 const barcelonaCenter: [number, number] = [41.3851, 2.1734]
+type ActionNoticeType = 'success' | 'info' | 'plan' | 'event' | 'friend'
 
 // ── Filtering helpers ─────────────────────────────────────────────────────────
 
@@ -85,12 +86,14 @@ function App() {
     const [friendsLoading, setFriendsLoading] = useState(false)
     const [friendsError, setFriendsError] = useState('')
     const [friendNotice, setFriendNotice] = useState('')
+    const [friendNoticeType, setFriendNoticeType] = useState<ActionNoticeType>('friend')
     const [friendNoticeExiting, setFriendNoticeExiting] = useState(false)
     const [incomingNoticeExiting, setIncomingNoticeExiting] = useState(false)
     const [dismissedIncomingCount, setDismissedIncomingCount] = useState(0)
     const [isLoading, setIsLoading] = useState(true)
     const [showSplash, setShowSplash] = useState(true)
     const [splashExiting, setSplashExiting] = useState(false)
+    const noticeTimers = useRef<number[]>([])
 
     const [joinedEventIds, setJoinedEventIds] = useState<Set<string>>(new Set())
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
@@ -327,6 +330,7 @@ function App() {
             setJoinedEventIds((prev) => new Set([...prev, eventId]))
             const updated = await getEvents()
             setEvents(updated)
+            showActionNotice('Event subscribed.', 'event')
         } catch (err) {
             console.error('Join failed:', err)
         }
@@ -338,6 +342,7 @@ function App() {
             setJoinedEventIds((prev) => { const s = new Set(prev); s.delete(eventId); return s })
             const updated = await getEvents()
             setEvents(updated)
+            showActionNotice('Event unsubscribed.', 'event')
         } catch (err) {
             console.error('Leave failed:', err)
         }
@@ -414,6 +419,9 @@ function App() {
 
         const result = addSavedPlan(savedContent, plan)
         setAndPersistSavedContent(result.state)
+        if (!result.duplicate) {
+            showActionNotice('Plan saved.', 'plan')
+        }
 
         return {
             saved: !result.duplicate,
@@ -429,6 +437,7 @@ function App() {
 
     const handleRemoveSavedPlan = (planId: string) => {
         setAndPersistSavedContent(removeSavedPlan(savedContent, planId))
+        showActionNotice('Plan unsaved.', 'plan')
     }
 
     const handleRemoveSavedRoute = (routeId: string) => {
@@ -460,16 +469,25 @@ function App() {
         await Promise.all([refreshFriends(), refreshFriendRequests()])
     }
 
-    const showFriendNotice = (message: string) => {
+    const clearNoticeTimers = () => {
+        noticeTimers.current.forEach(window.clearTimeout)
+        noticeTimers.current = []
+    }
+
+    const showActionNotice = (message: string, type: ActionNoticeType = 'friend') => {
+        clearNoticeTimers()
         setFriendNotice(message)
+        setFriendNoticeType(type)
         setFriendNoticeExiting(false)
-        window.setTimeout(() => {
+        const exitTimer = window.setTimeout(() => {
             setFriendNoticeExiting(true)
-            window.setTimeout(() => {
+            const removeTimer = window.setTimeout(() => {
                 setFriendNotice((current) => current === message ? '' : current)
                 setFriendNoticeExiting(false)
             }, 320)
-        }, 3000)
+            noticeTimers.current.push(removeTimer)
+        }, 6500)
+        noticeTimers.current.push(exitTimer)
     }
 
     const dismissIncomingNotice = () => {
@@ -483,14 +501,20 @@ function App() {
 
     const dismissFriendNotices = () => {
         if (friendNotice && !friendNoticeExiting) {
+            clearNoticeTimers()
             setFriendNoticeExiting(true)
-            window.setTimeout(() => {
+            const removeTimer = window.setTimeout(() => {
                 setFriendNotice('')
                 setFriendNoticeExiting(false)
             }, 320)
+            noticeTimers.current.push(removeTimer)
         }
         dismissIncomingNotice()
     }
+
+    useEffect(() => {
+        return clearNoticeTimers
+    }, [])
 
     useEffect(() => {
         if (!showIncomingRequestNotice) return
@@ -505,25 +529,25 @@ function App() {
     const handleSendFriendRequest = async (userId: string) => {
         await sendFriendRequest(userId)
         await refreshSocialState()
-        showFriendNotice('Friend request sent.')
+        showActionNotice('Friend request sent.', 'success')
     }
 
     const handleAcceptFriendRequest = async (requestId: string) => {
         await acceptFriendRequest(requestId)
         await refreshSocialState()
-        showFriendNotice('Friend request accepted.')
+        showActionNotice('Friend request accepted.', 'success')
     }
 
     const handleRejectFriendRequest = async (requestId: string) => {
         await rejectFriendRequest(requestId)
         await refreshSocialState()
-        showFriendNotice('Friend request rejected.')
+        showActionNotice('Friend request rejected.', 'friend')
     }
 
     const handleCancelFriendRequest = async (requestId: string) => {
         await cancelFriendRequest(requestId)
         await refreshSocialState()
-        showFriendNotice('Friend request cancelled.')
+        showActionNotice('Friend request cancelled.', 'friend')
     }
 
     const handleRemoveFriend = async (userId: string) => {
@@ -570,7 +594,7 @@ function App() {
                         </a>
                     )}
                     {friendNotice && (
-                        <div className={`friend-notice friend-notice--success ${friendNoticeExiting ? 'friend-notice--exit' : ''}`}>
+                        <div className={`friend-notice friend-notice--${friendNoticeType} ${friendNoticeExiting ? 'friend-notice--exit' : ''}`}>
                             {friendNotice}
                         </div>
                     )}
