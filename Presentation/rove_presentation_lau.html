@@ -60,6 +60,24 @@ p,.lead{font-size:24px;line-height:1.42;color:var(--muted);margin:18px 0 0}
 .compact-side .card h3{font-size:22px;margin:8px 0 4px}
 .compact-side .card p{font-size:16px;line-height:1.32}
 .compact-side .pill{font-size:15px;padding:6px 11px}
+.benchmark-lead{max-width:1180px;font-size:21px;margin-top:10px}
+.benchmark-card{margin-top:18px;padding:16px 18px 18px;border-radius:26px;background:rgba(255,255,255,.9);border:1px solid var(--line);box-shadow:0 18px 52px rgba(15,23,42,.09)}
+.benchmark-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;line-height:1.18;color:#334155}
+.benchmark-table th,.benchmark-table td{padding:9px 8px;text-align:center;border-bottom:1px solid #e4edf8}
+.benchmark-table th:first-child,.benchmark-table td:first-child{text-align:left;font-weight:900;color:#1e293b;width:17%}
+.benchmark-table th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:950}
+.benchmark-table tr:last-child td{border-bottom:0}
+.benchmark-table td{font-weight:800;background:rgba(248,251,255,.72)}
+.benchmark-table td:not(:first-child){width:11.8%}
+.benchmark-table .yes{color:#15803d;font-weight:950;font-size:17px}
+.benchmark-table .no{color:#94a3b8;font-weight:950;font-size:17px}
+.benchmark-table .limited{color:#64748b;font-weight:850}
+.benchmark-table th.rove-head,.benchmark-table td.rove-cell{background:linear-gradient(135deg,rgba(239,246,255,.98),rgba(236,253,243,.98));border-left:2px solid rgba(37,99,235,.28);border-right:2px solid rgba(22,163,74,.22);box-shadow:inset 0 0 0 1px rgba(37,99,235,.08)}
+.benchmark-table th.rove-head{border-top:2px solid rgba(37,99,235,.25);border-radius:18px 18px 0 0;padding:7px 8px}
+.benchmark-table tr:last-child td.rove-cell{border-bottom:2px solid rgba(22,163,74,.22);border-radius:0 0 18px 18px}
+.benchmark-logo-wrap{display:inline-grid;place-items:center;background:#fff;border:1px solid #dbeafe;border-radius:14px;padding:5px 10px;box-shadow:0 10px 24px rgba(37,99,235,.12)}
+.benchmark-logo-wrap img{width:74px;height:28px;object-fit:contain;display:block}
+.benchmark-takeaway{margin-top:14px;border-radius:20px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#f0fdf4);padding:15px 18px;color:#1e3a8a;font-size:18px;font-weight:850;box-shadow:0 12px 30px rgba(37,99,235,.09)}
 .slide-demo-shell{height:auto;align-items:start}
 .slide-demo-shot{width:100%;height:auto;aspect-ratio:1600/875;object-fit:contain;background:transparent}
 .slide-explore-shot{width:100%;height:auto;aspect-ratio:1600/1165;object-fit:contain;background:#fff}
@@ -313,6 +331,37 @@ p,.lead{font-size:24px;line-height:1.42;color:var(--muted);margin:18px 0 0}
       <div class="card tight"><span class="pill green">Route generation</span><p>The planner turns nearby opportunities into same-day routes.</p></div>
       <div class="card tight"><span class="pill">Saved routes and plans</span><p>Users can keep ideas and routes for later from their account area.</p></div>
     </div>
+  </section>
+
+  <section class="slide" data-note="Use this benchmark to position Rove as one integrated workflow rather than another single-purpose planning tool.">
+    <div class="eyebrow">Product benchmark</div><h2 class="h1">Benchmark: Rove combines the full planning workflow</h2>
+    <p class="lead benchmark-lead">People currently discover, coordinate, map, and plan across separate tools. Rove brings the workflow into one place.</p>
+    <div class="benchmark-card">
+      <table class="benchmark-table" aria-label="Product benchmark comparison">
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            <th>Google Maps</th>
+            <th>Group chats</th>
+            <th>Instagram</th>
+            <th>TikTok</th>
+            <th>Eventbrite / Meetup</th>
+            <th class="rove-head"><span class="benchmark-logo-wrap"><img src="images/rove-logo.png" alt="Rove"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Map-based discovery</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="limited">Limited</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Friend context</td><td class="no">❌</td><td class="yes">✅</td><td class="limited">Limited</td><td class="limited">Limited</td><td class="limited">Limited</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Events + plans together</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="limited">Events only</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Route generation</td><td class="limited">Limited</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Saved routes/plans</td><td class="limited">Limited</td><td class="no">❌</td><td class="limited">Saved posts only</td><td class="limited">Saved videos only</td><td class="limited">Limited</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Visibility controls</td><td class="no">❌</td><td class="limited">Chat privacy only</td><td class="limited">Limited</td><td class="limited">Limited</td><td class="limited">Limited</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Recommendation reasons</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="limited">Limited</td><td class="rove-cell yes">✅</td></tr>
+          <tr><td>Social planning workflow</td><td class="no">❌</td><td class="limited">Partial</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="rove-cell yes">✅</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="benchmark-takeaway">Rove replaces a fragmented workflow: discover on Instagram/TikTok, coordinate in group chats, map in Google Maps, and plan manually.</div>
   </section>
 
   <section class="slide" data-note="Keep this quick: show GitHub workflow, CI/tests, and the Supabase schema.">
